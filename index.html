@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ピッタンコロ | 落ちものサイコロパズル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0B0E14;
+    --bg-1:#161C26;
+    --panel:#1F2735;
+    --line:#2E3A4E;
+    --accent:#E8A33D;
+    --danger:#D9564A;
+    --cream:#EDE9DE;
+    --cream-dim:#8C93A0;
+    --slot:#0A0F15;
+    --buffer-slot:#141B26;
+    --die-bg:#F3ECDD;
+    --die-border:#B08B3C;
+    --die-pip:#241C15;
+    --die-red-bg:#7A211C;
+    --die-red-border:#D9564A;
+    --die-red-pip:#F3ECDD;
+  }
+  
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html, body {
+    width: 100%; height: 100%; margin: 0; padding: 0;
+    background: #000;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Inter', sans-serif;
+    color: var(--cream);
+  }
+
+  .viewport-scaler {
+    width: 360px;
+    height: 640px;
+    position: relative;
+    background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-0) 80%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px;
+    gap: 2px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+  }
+
+  .board-wrap {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; position: relative;
+    min-height: 0;
+  }
+  .board-frame {
+    height: 100%;
+    width: auto;
+    aspect-ratio: 6 / 11;
+    max-width: 100%;
+    background: linear-gradient(180deg,#232B38,#171D26);
+    border: 3px solid var(--line); border-radius: 10px;
+    padding: 4px; position: relative;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    cursor: pointer;
+    container-type: inline-size;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .board-frame.warning-active {
+    animation: warningFramePulse 0.6s infinite alternate ease-in-out;
+  }
+
+  @keyframes warningFramePulse {
+    0% {
+      border-color: #ffcc00;
+      box-shadow: 0 0 8px rgba(255, 204, 0, 0.4), inset 0 0 8px rgba(255, 204, 0, 0.2);
+    }
+    100% {
+      border-color: #ff5500;
+      box-shadow: 0 0 20px rgba(255, 204, 0, 0.9), inset 0 0 15px rgba(255, 204, 0, 0.5);
+    }
+  }
+
+  .header-panel {
+    height: 56px;
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 0 10px; flex: 0 0 auto;
+    transition: width 0.1s ease;
+  }
+  .score-area { display: flex; align-items: baseline; gap: 4px; }
+  .score-area .l { font-size: 10px; color: var(--cream-dim); font-weight: 700; }
+  .score-area .v { font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; color: var(--accent); line-height: 1; }
+
+  .next-area { display: flex; align-items: center; gap: 4px; }
+  .next-label { font-size: 10px; color: var(--cream-dim); font-weight: 700; }
+  .next-box { display: flex; gap: 3px; background: var(--slot); padding: 3px; border-radius: 8px; border: 1px solid var(--line); }
+  .next-box .die { width: 26px; height: 26px; padding: 6%; }
+
+  .audio-btn, .menu-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--cream);
+    border-radius: 8px; width: 30px; height: 30px; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; margin-left: 4px;
+    cursor: pointer;
+  }
+
+  #board {
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(11, 1fr);
+    gap: 2px;
+  }
+  #board .cell:nth-child(-n+12) { background: var(--buffer-slot); }
+  .cell { border-radius: 3px; background: var(--slot); }
+
+  .dead-line {
+    position: absolute; left: 0; right: 0;
+    top: calc(100% / 11 * 2);
+    height: 2px; border-top: 2px dashed var(--danger);
+    pointer-events: none; z-index: 2; opacity: 0.75;
+  }
+
+  .die {
+    border-radius: 3px; display: grid;
+    grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr);
+    padding: 6%; background: var(--die-bg); border: 1.5px solid var(--die-border);
+    box-sizing: border-box;
+  }
+  .pip { width: 65%; height: 65%; border-radius: 50%; justify-self: center; align-self: center; background: var(--die-pip); }
+  .die.red { background: var(--die-red-bg); border-color: var(--die-red-border); }
+  .die.red .pip { background: var(--die-red-pip); }
+  
+  .p00{grid-area:1/1;} .p01{grid-area:1/2;} .p02{grid-area:1/3;}
+  .p10{grid-area:2/1;} .p11{grid-area:2/2;} .p12{grid-area:2/3;}
+  .p20{grid-area:3/1;} .p21{grid-area:3/2;} .p22{grid-area:3/3;}
+
+  .fade-badge {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    background: rgba(11, 14, 20, 0.9); border: 1px solid var(--accent); color: var(--accent);
+    padding: 4px 12px; border-radius: 16px; font-weight: 700;
+    font-size: 14cqi; text-align: center; white-space: nowrap;
+    pointer-events: none; z-index: 10; opacity: 0; transition: opacity 0.15s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  }
+  .fade-badge.show {
+    animation: fadeInOut 1.0s ease forwards;
+  }
+
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, -5px); }
+    15% { opacity: 1; transform: translate(-50%, 0); }
+    80% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -5px); }
+  }
+
+  #overlay {
+    position: absolute; inset: 0; background: rgba(10,14,20,0.92); border-radius: 8px;
+    display: none; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 20;
+  }
+  #overlay.show { display: flex; }
+  #overlay .msg { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 700; }
+  #overlay button { background: var(--accent); border: none; color: #1A1208; font-weight: 700; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  #overlay #btnTitleFromGameOver { background: var(--panel); color: var(--cream); border: 1px solid var(--line); }
+
+  .pad-row { display: flex; gap: 8px; width: 100%; height: 60px; flex: 0 0 auto; }
+  button.ctrl {
+    flex: 1; background: var(--panel); border: 1px solid var(--line); color: var(--cream);
+    border-radius: 12px; font-size: 26px; font-weight: 600; cursor: pointer;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  button.ctrl:active { background: #2A3648; }
+
+  .key-hint {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--cream-dim);
+    line-height: 1;
+    pointer-events: none;
+    opacity: 0.75;
+  }
+
+  .screen {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-0) 70%);
+    display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  }
+  .screen.show { display: flex; }
+  .screen h1 { font-size: 28px; font-family: 'Fraunces', serif; margin-bottom: 2px; letter-spacing: 1px; }
+  .screen .subtitle-text { font-size: 11px; color: var(--cream-dim); margin-bottom: 12px; }
+  .screen .big-btn {
+    background: var(--panel); border: 1px solid var(--line); color: var(--cream);
+    border-radius: 10px; padding: 12px 0; font-size: 15px; font-weight: 600;
+    width: 180px; text-align: center; cursor: pointer;
+  }
+  .screen .big-btn.primary { background: var(--accent); color: #1A1208; border: none; font-weight: 700; }
+  .screen .big-btn:active { background: #2A3648; }
+
+  .modal-box {
+    width: 320px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    color: var(--cream);
+  }
+  .tab-header {
+    display: flex;
+    background: var(--slot);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+  }
+  .tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--cream-dim);
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .tab-btn.active {
+    background: var(--panel);
+    color: var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .tab-content {
+    background: var(--bg-0);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 200px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--cream);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .rule-page {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+  }
+  .rule-page.active {
+    display: flex;
+  }
+  .rule-page-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--cream);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4px;
+  }
+  .rule-page-body {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--cream);
+  }
+  .rule-page-body ul {
+    margin: 6px 0 0 0;
+    padding-left: 16px;
+  }
+  .rule-page-body li {
+    margin-bottom: 6px;
+  }
+
+  .hl { color: var(--accent); font-weight: 700; }
+  .badge-white {
+    color: var(--cream); font-weight: 700;
+    background: rgba(255,255,255,0.15); padding: 1px 5px;
+    border-radius: 4px; border: 1px solid var(--cream-dim);
+    display: inline-block;
+  }
+  .badge-red {
+    color: var(--danger); font-weight: 700;
+    background: rgba(217,86,74,0.15); padding: 1px 5px;
+    border-radius: 4px; border: 1px solid var(--danger);
+    display: inline-block;
+  }
+
+  .page-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .nav-arrow {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--cream);
+    width: 32px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .dots-container {
+    display: flex;
+    gap: 6px;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--line);
+    transition: background 0.2s;
+  }
+  .dot.active {
+    background: var(--accent);
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .btn-back {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--cream);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-back:active { background: #2A3648; }
+
+  .guide-list { display: flex; flex-direction: column; gap: 10px; }
+  .guide-item { display: flex; flex-direction: column; gap: 2px; }
+  .guide-label { font-weight: 700; color: var(--accent); font-size: 12px; }
+  .guide-desc { color: var(--cream); }
+</style>
+</head>
+<body>
+
+<!-- BGM 音声要素 -->
+<audio id="bgm" src="bgm.mp3" loop></audio>
+
+<div class="viewport-scaler" id="appScaler">
+  <!-- タイトル画面 -->
+  <div id="titleScreen" class="screen show">
+    <h1>ピッタンコロ</h1>
+    <div class="subtitle-text">ピッタンころりん！ 落ちものサイコロパズル</div>
+    <button id="btnStart" class="big-btn primary">スタート</button>
+    <button id="btnTitleRules" class="big-btn">遊び方</button>
+    <button id="btnTitleControls" class="big-btn">操作説明</button>
+  </div>
+
+  <!-- ゲーム内ポーズメニュー -->
+  <div id="menuOverlay" class="screen">
+    <button id="btnRulesMenu" class="big-btn">遊び方</button>
+    <button id="btnControlsMenu" class="big-btn">操作説明</button>
+    <button id="btnRetryMenu" class="big-btn primary">リトライ</button>
+    <button id="btnTitleMenu" class="big-btn">タイトルへ</button>
+    <button id="btnCloseMenu" class="big-btn">閉じる</button>
+  </div>
+
+  <!-- 遊び方（ルール説明）モーダル -->
+  <div id="rulesOverlay" class="screen">
+    <div class="modal-box">
+      <div class="modal-title">遊び方</div>
+      
+      <div class="tab-content">
+        <!-- ページ1 -->
+        <div class="rule-page active" id="rulePage1">
+          <div class="rule-page-title">1. ダイスを消そう！</div>
+          <div class="rule-page-body">
+            ダイスを<span class="hl">ピタッ</span>と合わせて消しちゃおう！
+            <ul>
+              <li><span class="hl">同じ目</span>のダイスを合わせると、ダイスが消えてスコア獲得！</li>
+              <li><span class="hl">違う目</span>だと、引かれた数字でそのまま盤面に残るよ。</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- ページ2 -->
+        <div class="rule-page" id="rulePage2">
+          <div class="rule-page-title">2. ダイスの色を合わせよう！</div>
+          <div class="rule-page-body">
+            ダイスの色に注目！
+            <ul>
+              <li><span class="badge-white">白いダイス</span>は、白いダイスとしか反応しないよ。</li>
+              <li><span class="badge-red">赤いダイス</span>は、赤いダイスとしか反応しないよ。</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- ページ3 -->
+        <div class="rule-page" id="rulePage3">
+          <div class="rule-page-title">3. 連鎖で高得点！</div>
+          <div class="rule-page-body">
+            高得点は<span class="hl">連鎖</span>が鍵！
+            <ul>
+              <li>盤面は一定ターンごとに、ダイスが下から<span class="hl">せりあがって</span>くるよ。</li>
+              <li>ダイスを消すと、上に乗ったダイスが落ちて<span class="hl">連鎖チャンス</span>！</li>
+            </ul>
+            効率よく消して高得点を目指そう！
+          </div>
+        </div>
+
+        <!-- ページ送りナビゲーション -->
+        <div class="page-nav">
+          <button class="nav-arrow" id="btnPrevRule" disabled>◀</button>
+          <div class="dots-container">
+            <div class="dot active" id="dot1"></div>
+            <div class="dot" id="dot2"></div>
+            <div class="dot" id="dot3"></div>
+          </div>
+          <button class="nav-arrow" id="btnNextRule">▶</button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnCloseRules" class="btn-back">戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作説明モーダル -->
+  <div id="controlsOverlay" class="screen">
+    <div class="modal-box">
+      <div class="modal-title">操作説明</div>
+      <div class="tab-header">
+        <button class="tab-btn active" id="tabMobile">スマホ</button>
+        <button class="tab-btn" id="tabPC">PC</button>
+      </div>
+      
+      <div class="tab-content">
+        <div id="contentMobile" class="guide-list">
+          <div class="guide-item">
+            <span class="guide-label">← / → ボタン</span>
+            <span class="guide-desc">ダイスを左右に動かします。</span>
+          </div>
+          <div class="guide-item">
+            <span class="guide-label">↻ ボタン</span>
+            <span class="guide-desc">ダイスを回転させます。</span>
+          </div>
+          <div class="guide-item">
+            <span class="guide-label">盤面タップ</span>
+            <span class="guide-desc">ダイスを一気に一番下まで落とします（ハードドロップ）。</span>
+          </div>
+        </div>
+
+        <div id="contentPC" class="guide-list" style="display:none;">
+          <div class="guide-item">
+            <span class="guide-label">← / → または A / D</span>
+            <span class="guide-desc">ダイスを左右に動かします。</span>
+          </div>
+          <div class="guide-item">
+            <span class="guide-label">↑ または W</span>
+            <span class="guide-desc">ダイスを回転させます。</span>
+          </div>
+          <div class="guide-item">
+            <span class="guide-label">↓ / Space / S / 盤面クリック</span>
+            <span class="guide-desc">ダイスを一気に一番下まで落とします（ハードドロップ）。</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnCloseControls" class="btn-back">戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-panel" id="headerPanel">
+    <div class="score-area">
+      <span class="l">SCORE</span>
+      <span class="v" id="scoreVal">0</span>
+    </div>
+    <div style="display:flex; align-items:center;">
+      <div class="next-area">
+        <span class="next-label">NEXT</span>
+        <div class="next-box" id="nextPreview"></div>
+      </div>
+      <!-- 音量切り替えボタン -->
+      <button class="audio-btn" id="btnAudio">🔊</button>
+      <button class="menu-btn" id="btnMenu">≡</button>
+    </div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board-frame" id="boardFrame">
+      <div class="dead-line"></div>
+      <div id="board"></div>
+      
+      <div id="fadeBadge" class="fade-badge">せり上がり！</div>
+      
+      <div id="overlay">
+        <div class="msg">GAME OVER</div>
+        <button id="restartBtn">もう一度</button>
+        <button id="btnTitleFromGameOver">タイトルへ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad-row">
+    <button class="ctrl" id="btnLeft">
+      ←
+      <span class="key-hint">A</span>
+    </button>
+    <button class="ctrl" id="btnRotate">
+      ↻
+      <span class="key-hint">W</span>
+    </button>
+    <button class="ctrl" id="btnRight">
+      →
+      <span class="key-hint">D</span>
+    </button>
+  </div>
+</div>
+
+<script>
+function autoScaleUI() {
+  const scaler = document.getElementById('appScaler');
+  const targetW = 360, targetH = 640;
+  const scale = Math.min(window.innerWidth / targetW, window.innerHeight / targetH);
+  scaler.style.transform = `scale(${scale})`;
+  scaler.style.transformOrigin = 'center center';
+
+  const boardFrame = document.getElementById('boardFrame');
+  const headerPanel = document.getElementById('headerPanel');
+  if (boardFrame && headerPanel) {
+    const boardWidth = boardFrame.getBoundingClientRect().width / scale;
+    if (boardWidth > 0) headerPanel.style.width = boardWidth + 'px';
+  }
+}
+
+window.addEventListener('resize', autoScaleUI);
+window.addEventListener('orientationchange', autoScaleUI);
+document.addEventListener('DOMContentLoaded', ()=>{ autoScaleUI(); setTimeout(autoScaleUI, 50); });
+
+/* ---- BGM 管理 ---- */
+const bgm = document.getElementById('bgm');
+const btnAudio = document.getElementById('btnAudio');
+let isMuted = false;
+
+function playBGM() {
+  if (bgm && bgm.paused && !isMuted) {
+    bgm.play().catch(e => console.log("Audio play blocked:", e));
+  }
+}
+
+function toggleAudio() {
+  isMuted = !isMuted;
+  if (isMuted) {
+    bgm.pause();
+    btnAudio.textContent = '🔇';
+  } else {
+    bgm.play().catch(e => console.log("Audio play blocked:", e));
+    btnAudio.textContent = '🔊';
+  }
+}
+
+if (btnAudio) {
+  btnAudio.addEventListener('click', toggleAudio);
+}
+
+/* ---- ゲームロジック ---- */
+const COLS=6, TOTAL_ROWS=11, BUFFER_ROWS=2;
+const RISE_INTERVAL = 5;
+const RISE_MIN=3, RISE_MAX=6;
+const RISE_BAG_SIZE = 30, RISE_RED_COUNT = 5, RISE_WHITE_COUNT = RISE_BAG_SIZE - RISE_RED_COUNT;
+const BAG_PIECE_COUNT = 20, TOTAL_CELLS = BAG_PIECE_COUNT * 2;
+const RED_CELL_COUNT = 8, WHITE_CELL_COUNT = TOTAL_CELLS - RED_CELL_COUNT, WHITE_TOTAL_SUM = 112;
+const DROP_INTERVAL_MS = 1600, SPEED_UP_SCORE_STEP = 175, SPEED_UP_FACTOR = 0.9, MIN_DROP_INTERVAL_MS = 600;
+
+const DIR = { L:[0,-1], R:[0,1], D:[1,0] };
+const TOP_DIRS = [DIR.L, DIR.R], BOTTOM_DIRS = [DIR.L, DIR.D, DIR.R];
+const LEFT_DIRS = [DIR.D, DIR.L], RIGHT_DIRS = [DIR.D, DIR.R];
+const FALL_DIRS = [DIR.L, DIR.D, DIR.R];
+
+const PIP_MAP = {
+  1:[[1,1]],
+  2:[[0,0],[2,2]],
+  3:[[0,0],[1,1],[2,2]],
+  4:[[0,0],[0,2],[2,0],[2,2]],
+  5:[[0,0],[0,2],[1,1],[2,0],[2,2]],
+  6:[[0,0],[0,2],[1,0],[1,2],[2,0],[2,2]]
+};
+
+let board, boardColor, current, next, score, maxChain, dropTimer, resolving, gameOver, isPaused = false;
+let turnsUntilRise, bagColorSlots, whiteBudget, speedTier, riseColorBag, riseEventCount;
+let gameGen = 0;
+let previousScreen = 'titleScreen';
+let currentRulePage = 1;
+
+function randInt(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function inBounds(r,c){ return r>=0 && r<TOTAL_ROWS && c>=0 && c<COLS; }
+function sleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+function refillBag(){
+  bagColorSlots = [];
+  for(let i=0;i<RED_CELL_COUNT;i++) bagColorSlots.push('R');
+  for(let i=0;i<WHITE_CELL_COUNT;i++) bagColorSlots.push('W');
+  shuffle(bagColorSlots);
+  whiteBudget = { cellsLeft: WHITE_CELL_COUNT, sumLeft: WHITE_TOTAL_SUM };
+}
+
+function drawWhiteValue(){
+  const remainingAfter = whiteBudget.cellsLeft - 1;
+  const minVal = Math.max(1, whiteBudget.sumLeft - remainingAfter*6);
+  const maxVal = Math.min(6, whiteBudget.sumLeft - remainingAfter*1);
+  const v = randInt(minVal, maxVal);
+  whiteBudget.sumLeft -= v;
+  whiteBudget.cellsLeft -= 1;
+  return v;
+}
+
+function drawCell(){
+  if(bagColorSlots.length===0){ refillBag(); }
+  const color = bagColorSlots.pop();
+  const val = color==='R' ? randInt(1,6) : drawWhiteValue();
+  return { val, color };
+}
+
+function makePiece(){
+  const cellA = drawCell();
+  const cellB = drawCell();
+  return { row:0, col:2, state:1, A:cellA.val, B:cellB.val, colorA:cellA.color, colorB:cellB.color };
+}
+
+function pieceCells(p){
+  const s = p.state % 4;
+  if(s===0) return [{r:p.row, c:p.col, val:p.A, dirs:TOP_DIRS, color:p.colorA}, {r:p.row+1, c:p.col, val:p.B, dirs:BOTTOM_DIRS, color:p.colorB}];
+  if(s===2) return [{r:p.row, c:p.col, val:p.B, dirs:TOP_DIRS, color:p.colorB}, {r:p.row+1, c:p.col, val:p.A, dirs:BOTTOM_DIRS, color:p.colorA}];
+  if(s===1) return [{r:p.row, c:p.col, val:p.A, dirs:LEFT_DIRS, color:p.colorA}, {r:p.row, c:p.col+1, val:p.B, dirs:RIGHT_DIRS, color:p.colorB}];
+  return [{r:p.row, c:p.col, val:p.B, dirs:LEFT_DIRS, color:p.colorB}, {r:p.row, c:p.col+1, val:p.A, dirs:RIGHT_DIRS, color:p.colorA}];
+}
+
+function canPlace(p, dr, dc, state){
+  const test = {...p, row:p.row+dr, col:p.col+dc, state: state!==undefined?state:p.state};
+  for(const cell of pieceCells(test)){
+    if(cell.c<0 || cell.c>=COLS || cell.r<0 || cell.r>=TOTAL_ROWS) return false;
+    if(board[cell.r][cell.c]!==0) return false;
+  }
+  return true;
+}
+
+function newGame(){
+  gameGen++;
+  board = Array.from({length:TOTAL_ROWS},()=>Array(COLS).fill(0));
+  boardColor = Array.from({length:TOTAL_ROWS},()=>Array(COLS).fill('W'));
+  score=0; maxChain=0; resolving=false; gameOver=false; isPaused=false;
+  turnsUntilRise = RISE_INTERVAL;
+  riseEventCount = 0; speedTier = 0;
+  clearWarningStripe();
+  refillBag(); refillRiseBag();
+  next = makePiece();
+  document.getElementById('overlay').classList.remove('show');
+  spawnNext();
+  resetDropTimer();
+  autoScaleUI();
+  playBGM();
+}
+
+function pauseGame(){
+  if(gameOver) return;
+  isPaused = true;
+  clearInterval(dropTimer);
+}
+
+function resumeGame(){
+  if(gameOver) return;
+  isPaused = false;
+  resetDropTimer();
+}
+
+function resetDropTimer(){
+  clearInterval(dropTimer);
+  if(!isPaused && !gameOver){
+    const interval = Math.max(MIN_DROP_INTERVAL_MS, Math.round(DROP_INTERVAL_MS * Math.pow(SPEED_UP_FACTOR, speedTier)));
+    dropTimer = setInterval(tick, interval);
+  }
+}
+
+function checkDeadLineOverflow(){
+  for(let c = 0; c < COLS; c++){
+    if(board[0][c] !== 0 || board[1][c] !== 0) return true;
+  }
+  return false;
+}
+
+function spawnNext(){
+  if(checkDeadLineOverflow()){
+    endGame();
+    return;
+  }
+  current = next;
+  current.row=0; current.col=2; current.state=1;
+  next = makePiece();
+  renderNext();
+  render();
+}
+
+function tick(){
+  if(resolving || gameOver || isPaused || !current) return;
+  if(canPlace(current,1,0)){ current.row++; render(); return; }
+  handleLanding();
+}
+function tryMove(dc){
+  if(resolving || gameOver || isPaused || !current) return;
+  if(canPlace(current,0,dc)){ current.col+=dc; render(); }
+}
+function tryRotate(){
+  if(resolving || gameOver || isPaused || !current) return;
+  const ns = (current.state+3)%4;
+  if(canPlace(current,0,0,ns)){ current.state=ns; render(); return; }
+  if(canPlace(current,0,-1,ns)){ current.col-=1; current.state=ns; return; }
+  if(canPlace(current,0,1,ns)){ current.col+=1; current.state=ns; return; }
+}
+function hardDrop(){
+  if(resolving || gameOver || isPaused || !current) return;
+  while(canPlace(current,1,0)){ current.row++; }
+  handleLanding();
+}
+
+function pieceBlockedInfo(){
+  const cells = pieceCells(current);
+  if(current.state%2===1){
+    const [a,b] = cells;
+    const aBlocked = !(inBounds(a.r+1,a.c) && board[a.r+1][a.c]===0);
+    const bBlocked = !(inBounds(b.r+1,b.c) && board[b.r+1][b.c]===0);
+    if(aBlocked !== bBlocked){
+      return { split:true, supported: aBlocked?a:b, faller: aBlocked?b:a };
+    }
+  }
+  return { split:false };
+}
+
+function handleLanding(){
+  const info = pieceBlockedInfo();
+  if(info.split){ lockWithSplit(info.supported, info.faller); }
+  else { lock(); }
+}
+
+async function lock(){
+  const gen = gameGen;
+  resolving = true;
+  const cells = pieceCells(current);
+  for(const cell of cells){
+    if(inBounds(cell.r, cell.c)){
+      board[cell.r][cell.c] = cell.val;
+      boardColor[cell.r][cell.c] = cell.color;
+    }
+  }
+  current = null;
+  render();
+  await sleep(90);
+  if(gen !== gameGen) { resolving = false; return; }
+
+  for(const cell of cells){
+    if(inBounds(cell.r, cell.c)){
+      await performAction(cell.r, cell.c, cell.val, cell.color, cell.dirs);
+      if(gen !== gameGen) { resolving = false; return; }
+    }
+  }
+  await afterTurnResolved();
+}
+
+async function lockWithSplit(supported, faller){
+  const gen = gameGen;
+  resolving = true;
+  if(inBounds(supported.r, supported.c)){
+    board[supported.r][supported.c] = supported.val;
+    boardColor[supported.r][supported.c] = supported.color;
+  }
+  current = null;
+  render();
+  await sleep(90);
+  if(gen !== gameGen) { resolving = false; return; }
+  if(inBounds(supported.r, supported.c)){
+    await performAction(supported.r, supported.c, supported.val, supported.color, supported.dirs);
+    if(gen !== gameGen) { resolving = false; return; }
+  }
+
+  let fr = faller.r, fc = faller.c;
+  while(fr+1 < TOTAL_ROWS && board[fr+1][fc]===0){ fr++; }
+  if(gen !== gameGen) { resolving = false; return; }
+  if(inBounds(fr, fc)){
+    board[fr][fc] = faller.val;
+    boardColor[fr][fc] = faller.color;
+    render();
+    await sleep(90);
+    if(gen !== gameGen) { resolving = false; return; }
+    await performAction(fr, fc, faller.val, faller.color, FALL_DIRS);
+  }
+
+  await afterTurnResolved();
+}
+
+async function afterTurnResolved(){
+  const gen = gameGen;
+  if(gen !== gameGen) { resolving = false; return; }
+  updateStats();
+  updateSpeed();
+
+  turnsUntilRise--;
+  const nextRiseIsDouble = (riseEventCount+1) % 5 === 0;
+  
+  if(turnsUntilRise===2 && nextRiseIsDouble){
+    triggerFadeBadge("いっきにくるぞ！！");
+    showWarningStripe();
+  }
+
+  if(turnsUntilRise<=0){
+    turnsUntilRise = RISE_INTERVAL;
+    const isDouble = (riseEventCount+1) % 5 === 0;
+    riseEventCount++;
+    
+    triggerFadeBadge("せり上がり！");
+    clearWarningStripe();
+    await executeRise(isDouble ? 2 : 1);
+  }
+
+  resolving = false;
+  if(gen !== gameGen) return;
+  spawnNext();
+}
+
+async function performAction(r, c, value, color, dirs){
+  const gen = gameGen;
+  const targets = [];
+  for(const [dr,dc] of dirs){
+    const nr=r+dr, nc=c+dc;
+    if(!inBounds(nr,nc)) continue;
+    if(board[nr][nc]===0) continue;
+    if(boardColor[nr][nc]!==color) continue;
+    targets.push({nr,nc,diff: board[nr][nc]-value});
+  }
+  const contacted = targets.length>0;
+  const affectedCols = new Set();
+
+  for(const o of targets){
+    if(o.diff===0){
+      board[o.nr][o.nc] = 0;
+      score += 10;
+      affectedCols.add(o.nc);
+    } else {
+      board[o.nr][o.nc] = Math.abs(o.diff);
+    }
+  }
+  if(contacted){
+    board[r][c] = 0;
+    affectedCols.add(c);
+  }
+
+  render();
+  await sleep(90);
+  if(gen !== gameGen) return;
+
+  const fallenDice = [];
+  for(const col of affectedCols){
+    const moved = compactColumnWithTracking(col);
+    fallenDice.push(...moved);
+  }
+
+  if(affectedCols.size > 0){
+    render();
+    await sleep(80);
+    if(gen !== gameGen) return;
+  }
+
+  for(const dieInfo of fallenDice){
+    if(board[dieInfo.newR][dieInfo.col] === dieInfo.val && boardColor[dieInfo.newR][dieInfo.col] === dieInfo.color){
+      await performAction(dieInfo.newR, dieInfo.col, dieInfo.val, dieInfo.color, FALL_DIRS);
+    }
+  }
+}
+
+function compactColumnWithTracking(c){
+  const existing = [];
+  for(let r=TOTAL_ROWS-1; r>=0; r--){
+    if(board[r][c] !== 0){
+      existing.push({ oldR: r, val: board[r][c], color: boardColor[r][c] });
+    }
+  }
+
+  const movedDice = [];
+  for(let r=TOTAL_ROWS-1, i=0; r>=0; r--, i++){
+    if(i < existing.length){
+      const item = existing[i];
+      board[r][c] = item.val;
+      boardColor[r][c] = item.color;
+      if(r > item.oldR){
+        movedDice.push({ newR: r, col: c, val: item.val, color: item.color });
+      }
+    } else {
+      board[r][c] = 0;
+    }
+  }
+  return movedDice;
+}
+
+function refillRiseBag(){
+  riseColorBag = [];
+  for(let i=0;i<RISE_RED_COUNT;i++) riseColorBag.push('R');
+  for(let i=0;i<RISE_WHITE_COUNT;i++) riseColorBag.push('W');
+  shuffle(riseColorBag);
+}
+
+function drawRiseCell(){
+  if(!riseColorBag || riseColorBag.length===0){ refillRiseBag(); }
+  const color = riseColorBag.pop();
+  const val = color==='R' ? randInt(1,6) : randInt(RISE_MIN, RISE_MAX);
+  return { val, color };
+}
+
+function generateRiseRow(){
+  const values=[], colors=[];
+  for(let c=0;c<COLS;c++){
+    const cell = drawRiseCell();
+    values.push(cell.val);
+    colors.push(cell.color);
+  }
+  return { values, colors };
+}
+
+async function executeRise(rows){
+  const gen = gameGen;
+  for(let i=0;i<rows;i++){
+    for(let r=0;r<TOTAL_ROWS-1;r++){ board[r]=board[r+1]; boardColor[r]=boardColor[r+1]; }
+    const row = generateRiseRow();
+    board[TOTAL_ROWS-1] = row.values;
+    boardColor[TOTAL_ROWS-1] = row.colors;
+    render();
+    await sleep(180);
+    if(gen !== gameGen) return;
+  }
+}
+
+function triggerFadeBadge(text){
+  const badge = document.getElementById('fadeBadge');
+  badge.textContent = text;
+  badge.classList.remove('show');
+  void badge.offsetWidth;
+  badge.classList.add('show');
+}
+
+function showWarningStripe(){
+  const frame = document.getElementById('boardFrame');
+  if(frame) frame.classList.add('warning-active');
+}
+
+function clearWarningStripe(){
+  const frame = document.getElementById('boardFrame');
+  if(frame) frame.classList.remove('warning-active');
+}
+
+function endGame(){
+  gameOver=true;
+  isPaused=false;
+  clearWarningStripe();
+  clearInterval(dropTimer);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function updateSpeed(){
+  const tier = Math.floor(score / SPEED_UP_SCORE_STEP);
+  if(tier !== speedTier){
+    speedTier = tier;
+    resetDropTimer();
+  }
+}
+
+function updateStats(){
+  document.getElementById('scoreVal').textContent = score;
+}
+
+function dieHTML(val, color, extraClass){
+  const pips = PIP_MAP[val] || [];
+  const colorClass = color==='R' ? 'red' : '';
+  let html = `<div class="die ${colorClass} ${extraClass||''}">`;
+  for(let r=0;r<3;r++){
+    for(let c=0;c<3;c++){
+      const on = pips.some(p=>p[0]===r && p[1]===c);
+      html += `<div class="p${r}${c}">${on?'<div class="pip"></div>':''}</div>`;
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+function render(){
+  const g = Array.from({length:TOTAL_ROWS},()=>Array(COLS).fill(0));
+  const gColor = Array.from({length:TOTAL_ROWS},()=>Array(COLS).fill('W'));
+  for(let r=0;r<TOTAL_ROWS;r++){
+    for(let c=0;c<COLS;c++){ g[r][c]=board[r][c]; gColor[r][c]=boardColor[r][c]; }
+  }
+  if(current){
+    for(const cell of pieceCells(current)){
+      if(cell.r>=0 && cell.r<TOTAL_ROWS){ g[cell.r][cell.c]=cell.val; gColor[cell.r][cell.c]=cell.color; }
+    }
+  }
+  let html='';
+  for(let r=0;r<TOTAL_ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const v=g[r][c];
+      html += v===0 ? '<div class="cell"></div>' : dieHTML(v, gColor[r][c]);
+    }
+  }
+  document.getElementById('board').innerHTML = html;
+}
+
+function renderNext(){
+  document.getElementById('nextPreview').innerHTML = dieHTML(next.A, next.colorA) + dieHTML(next.B, next.colorB);
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.repeat) return;
+  const k = e.key.toLowerCase();
+  if(k === 'arrowleft' || k === 'a'){ tryMove(-1); e.preventDefault(); }
+  else if(k === 'arrowright' || k === 'd'){ tryMove(1); e.preventDefault(); }
+  else if(k === 'arrowup' || k === 'w'){ tryRotate(); e.preventDefault(); }
+  else if(k === 'arrowdown' || k === 's' || e.key === ' '){ hardDrop(); e.preventDefault(); }
+});
+
+function showScreen(id){ document.getElementById(id).classList.add('show'); }
+function hideScreen(id){ document.getElementById(id).classList.remove('show'); }
+
+function goToTitle(){
+  gameGen++;
+  gameOver = true;
+  isPaused = false;
+  resolving = false;
+  current = null;
+  clearWarningStripe();
+  clearInterval(dropTimer);
+  hideScreen('menuOverlay');
+  document.getElementById('overlay').classList.remove('show');
+  showScreen('titleScreen');
+}
+
+// ボタンイベント設定
+document.getElementById('btnStart').addEventListener('click', ()=>{
+  hideScreen('titleScreen');
+  newGame();
+});
+
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  newGame();
+});
+
+document.getElementById('btnTitleFromGameOver').addEventListener('click', goToTitle);
+
+document.getElementById('btnMenu').addEventListener('click', ()=>{
+  pauseGame();
+  showScreen('menuOverlay');
+});
+
+document.getElementById('btnCloseMenu').addEventListener('click', ()=>{
+  hideScreen('menuOverlay');
+  resumeGame();
+});
+
+document.getElementById('btnRetryMenu').addEventListener('click', ()=>{
+  hideScreen('menuOverlay');
+  newGame();
+});
+
+document.getElementById('btnTitleMenu').addEventListener('click', goToTitle);
+
+// 遊び方モーダル
+function updateRulePages(){
+  for(let i=1; i<=3; i++){
+    const page = document.getElementById(`rulePage${i}`);
+    const dot = document.getElementById(`dot${i}`);
+    if(page) page.classList.toggle('active', i === currentRulePage);
+    if(dot) dot.classList.toggle('active', i === currentRulePage);
+  }
+  document.getElementById('btnPrevRule').disabled = (currentRulePage === 1);
+  document.getElementById('btnNextRule').disabled = (currentRulePage === 3);
+}
+
+document.getElementById('btnTitleRules').addEventListener('click', ()=>{
+  previousScreen = 'titleScreen';
+  currentRulePage = 1;
+  updateRulePages();
+  showScreen('rulesOverlay');
+});
+
+document.getElementById('btnRulesMenu').addEventListener('click', ()=>{
+  previousScreen = 'menuOverlay';
+  currentRulePage = 1;
+  updateRulePages();
+  showScreen('rulesOverlay');
+});
+
+document.getElementById('btnCloseRules').addEventListener('click', ()=>{
+  hideScreen('rulesOverlay');
+});
+
+document.getElementById('btnPrevRule').addEventListener('click', ()=>{
+  if(currentRulePage > 1){ currentRulePage--; updateRulePages(); }
+});
+
+document.getElementById('btnNextRule').addEventListener('click', ()=>{
+  if(currentRulePage < 3){ currentRulePage++; updateRulePages(); }
+});
+
+// 操作説明モーダル
+document.getElementById('btnTitleControls').addEventListener('click', ()=>{
+  previousScreen = 'titleScreen';
+  showScreen('controlsOverlay');
+});
+
+document.getElementById('btnControlsMenu').addEventListener('click', ()=>{
+  previousScreen = 'menuOverlay';
+  showScreen('controlsOverlay');
+});
+
+document.getElementById('btnCloseControls').addEventListener('click', ()=>{
+  hideScreen('controlsOverlay');
+});
+
+document.getElementById('tabMobile').addEventListener('click', (e)=>{
+  document.getElementById('tabMobile').classList.add('active');
+  document.getElementById('tabPC').classList.remove('active');
+  document.getElementById('contentMobile').style.display = 'flex';
+  document.getElementById('contentPC').style.display = 'none';
+});
+
+document.getElementById('tabPC').addEventListener('click', (e)=>{
+  document.getElementById('tabPC').classList.add('active');
+  document.getElementById('tabMobile').classList.remove('active');
+  document.getElementById('contentPC').style.display = 'flex';
+  document.getElementById('contentMobile').style.display = 'none';
+});
+
+// タッチ・コントローラー操作
+document.getElementById('btnLeft').addEventListener('click', ()=>tryMove(-1));
+document.getElementById('btnRight').addEventListener('click', ()=>tryMove(1));
+document.getElementById('btnRotate').addEventListener('click', ()=>tryRotate());
+document.getElementById('boardFrame').addEventListener('click', (e)=>{
+  if(e.target.closest('#overlay') || e.target.closest('#fadeBadge')) return;
+  hardDrop();
+});
+</script>
+</body>
+</html>
