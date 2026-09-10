@@ -25,6 +25,9 @@
     --die-red-bg:#7A211C;
     --die-red-border:#D9564A;
     --die-red-pip:#F3ECDD;
+    --die-green-bg:#1E3B2C;
+    --die-green-border:#57B26C;
+    --die-green-pip:#EAF6EC;
   }
   
   *{
@@ -45,12 +48,17 @@
     justify-content: center;
     font-family: 'Inter', sans-serif;
     color: var(--cream);
+    position: relative;
   }
 
   .viewport-scaler {
     width: 360px;
     height: 640px;
-    position: relative;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
     background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-0) 80%);
     display: flex;
     flex-direction: column;
@@ -192,7 +200,7 @@
     gap: 2px;
   }
 
-  #board .cell:nth-child(-n+12) {
+  .cell.buffer-cell {
     background: var(--buffer-slot);
   }
 
@@ -240,6 +248,15 @@
 
   .die.red .pip {
     background: var(--die-red-pip);
+  }
+
+  .die.green {
+    background: var(--die-green-bg);
+    border-color: var(--die-green-border);
+  }
+
+  .die.green .pip {
+    background: var(--die-green-pip);
   }
 
   .p00{grid-area:1/1;}
@@ -320,6 +337,36 @@
     font-family: 'Fraunces', serif;
     font-size: 20px;
     font-weight: 700;
+  }
+
+  #overlay .msg.clear {
+    color: var(--accent);
+  }
+
+  .score-popup {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    transform: translate(-50%,-50%);
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    animation: scorePopupFloat 0.5s ease-out forwards;
+  }
+
+  @keyframes scorePopupFloat {
+
+    0% {
+      opacity: 1;
+      transform: translate(-50%,-50%) translateY(0);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(-50%,-50%) translateY(-18px);
+    }
   }
 
   #overlay button {
@@ -407,6 +454,15 @@
     margin-bottom: 12px;
   }
 
+  .version-label {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    font-size: 10px;
+    color: var(--cream-dim);
+    letter-spacing: 0.5px;
+  }
+
   .screen .big-btn {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -423,6 +479,25 @@
   .screen .big-btn.primary {
     background: var(--accent);
     color: #1A1208;
+    border: none;
+    font-weight: 700;
+  }
+
+  .screen .big-btn.easy {
+    background: #FFFFFF;
+    color: #000000;
+    border: 1px solid #000000;
+    font-weight: 700;
+  }
+
+  .screen .big-btn.easy:active {
+    background: #EEEEEE;
+    color: #000000;
+  }
+
+  .screen .big-btn.genkai {
+    background: #C7443B;
+    color: #FFF6F0;
     border: none;
     font-weight: 700;
   }
@@ -552,6 +627,17 @@
     display: inline-block;
   }
 
+
+  .badge-green {
+    display: inline-block;
+    background: var(--die-green-bg);
+    border: 1px solid var(--die-green-border);
+    color: var(--die-green-pip);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-weight: 700;
+  }
+
   .page-nav {
     display: flex;
     align-items: center;
@@ -654,9 +740,13 @@
       ピッタンころりん！ 落ちものサイコロパズル
     </div>
 
-    <button id="btnStart" class="big-btn primary">スタート</button>
+    <button id="btnStartEasy" class="big-btn easy">かんたんモード</button>
+    <button id="btnStartEndless" class="big-btn primary">エンドレスモード</button>
+    <button id="btnStartBreak" class="big-btn genkai">げんかいとっぱモード</button>
     <button id="btnTitleRules" class="big-btn">遊び方</button>
     <button id="btnTitleControls" class="big-btn">操作説明</button>
+
+    <div class="version-label" id="versionLabel">Ver.0.9.9</div>
   </div>
 
   <!-- ゲーム内ポーズメニュー -->
@@ -715,6 +805,12 @@
               <li>
                 <span class="badge-red">赤いダイス</span>は、
                 赤いダイスとしか反応しないよ。
+              </li>
+
+              <li>
+                <span class="badge-green">緑のダイス</span>は、
+                緑のダイスとしか反応しないよ。
+                （げんかいとっぱモード限定）
               </li>
             </ul>
           </div>
@@ -876,10 +972,10 @@
         せり上がり！
       </div>
 
-      <!-- ゲームオーバー -->
+      <!-- ゲームオーバー / クリア -->
       <div id="overlay">
 
-        <div class="msg">GAME OVER</div>
+        <div class="msg" id="overlayMsg">GAME OVER</div>
 
         <button id="restartBtn">
           もう一度
@@ -934,7 +1030,8 @@ function autoScaleUI() {
     window.innerHeight / targetH
   );
 
-  scaler.style.transform = `scale(${scale})`;
+  /* 【修正箇所】常に画面中央を基準にスケーリング（レイアウトの中央維持） */
+  scaler.style.transform = `translate(-50%, -50%) scale(${scale})`;
   scaler.style.transformOrigin = 'center center';
 
   const boardFrame = document.getElementById('boardFrame');
@@ -953,6 +1050,8 @@ function autoScaleUI() {
 
 window.addEventListener('resize', autoScaleUI);
 window.addEventListener('orientationchange', autoScaleUI);
+/* 【修正箇所】フォント読込完了後に幅を再計測し、中央ズレを解消 */
+window.addEventListener('load', autoScaleUI);
 
 document.addEventListener('DOMContentLoaded', ()=>{
 
@@ -1017,51 +1116,109 @@ if(btnAudio){
    ゲーム定数
 ========================================================= */
 
-const COLS = 6;
-const TOTAL_ROWS = 11;
+/* =========================================================
+   モード別設定
+   easy / endless = 従来のまま（2色・6×11・従来速度）
+   genkai = 3色（赤/緑/白）・7×12・調整済み速度
+========================================================= */
+
+const MODE_CONFIG = {
+
+  easy:{
+    cols:6, rows:11,
+    red:8, green:0, white:32, whiteSum:112,
+    riseInterval:5, riseRed:5, riseGreen:0,
+    dropMs:1600, speedStep:175, speedFactor:0.9,
+    minMs:600, postCapMinMs:450
+  },
+
+  endless:{
+    cols:6, rows:11,
+    red:8, green:0, white:32, whiteSum:112,
+    riseInterval:5, riseRed:5, riseGreen:0,
+    dropMs:1600, speedStep:175, speedFactor:0.9,
+    minMs:600, postCapMinMs:450
+  },
+
+  genkai:{
+    cols:7, rows:12,
+    red:6, green:6, white:28, whiteSum:98,
+    riseInterval:6, riseRed:5, riseGreen:5,
+    dropMs:1800, speedStep:200, speedFactor:0.93,
+    minMs:700, postCapMinMs:520
+  }
+};
+
+let COLS = 6;
+let TOTAL_ROWS = 11;
+
+let RED_CELL_COUNT = 8;
+let GREEN_CELL_COUNT = 0;
+let WHITE_CELL_COUNT = 32;
+let WHITE_TOTAL_SUM = 112;
+
+let RISE_INTERVAL = 5;
+let RISE_RED_COUNT = 5;
+let RISE_GREEN_COUNT = 0;
+let RISE_WHITE_COUNT = 25;
+
+let DROP_INTERVAL_MS = 1600;
+let SPEED_UP_SCORE_STEP = 175;
+let SPEED_UP_FACTOR = 0.9;
+let MIN_DROP_INTERVAL_MS = 600;
+let POST_CAP_MIN_DROP_INTERVAL_MS = 450;
+let SPEED_CAP_SCORE = 0;
+
 const BUFFER_ROWS = 2;
-
-const RISE_INTERVAL = 5;
-
 const RISE_MIN = 3;
 const RISE_MAX = 6;
-
 const RISE_BAG_SIZE = 30;
-const RISE_RED_COUNT = 5;
-const RISE_WHITE_COUNT =
-  RISE_BAG_SIZE - RISE_RED_COUNT;
 
 const BAG_PIECE_COUNT = 20;
 const TOTAL_CELLS = BAG_PIECE_COUNT * 2;
 
-const RED_CELL_COUNT = 8;
-const WHITE_CELL_COUNT =
-  TOTAL_CELLS - RED_CELL_COUNT;
+const POST_CAP_STEP_SCORE = 350;
+const POST_CAP_STEP_MS = 50;
 
-const WHITE_TOTAL_SUM = 112;
+const BASE_MATCH_SCORE = 10;
+const CHAIN_BONUS_SCORE = 5;
 
-const DROP_INTERVAL_MS = 1600;
-const SPEED_UP_SCORE_STEP = 175;
-const SPEED_UP_FACTOR = 0.9;
-const MIN_DROP_INTERVAL_MS = 600;
+const EASY_DIE_MAX = 3;
+const EASY_CLEAR_SCORE = 2000;
 
-
-/*
- * ここが今回の変更部分。
- *
- * 連鎖時のブロック落下を、
- * 1マスずつこの時間をかけて表示する。
- *
- * 数字を大きくすると、さらにゆっくりになる。
- */
 const CHAIN_FALL_STEP_MS = 120;
-
-
-/*
- * 連鎖落下が全部終わったあと、
- * 次の判定へ進むまでのわずかな間。
- */
 const CHAIN_FALL_SETTLE_MS = 80;
+
+function applyModeConfig(mode){
+
+  const cfg = MODE_CONFIG[mode];
+
+  COLS = cfg.cols;
+  TOTAL_ROWS = cfg.rows;
+
+  RED_CELL_COUNT = cfg.red;
+  GREEN_CELL_COUNT = cfg.green;
+  WHITE_CELL_COUNT = cfg.white;
+  WHITE_TOTAL_SUM = cfg.whiteSum;
+
+  RISE_INTERVAL = cfg.riseInterval;
+  RISE_RED_COUNT = cfg.riseRed;
+  RISE_GREEN_COUNT = cfg.riseGreen;
+  RISE_WHITE_COUNT =
+    RISE_BAG_SIZE - cfg.riseRed - cfg.riseGreen;
+
+  DROP_INTERVAL_MS = cfg.dropMs;
+  SPEED_UP_SCORE_STEP = cfg.speedStep;
+  SPEED_UP_FACTOR = cfg.speedFactor;
+  MIN_DROP_INTERVAL_MS = cfg.minMs;
+  POST_CAP_MIN_DROP_INTERVAL_MS = cfg.postCapMinMs;
+
+  SPEED_CAP_SCORE =
+    Math.ceil(
+      Math.log(MIN_DROP_INTERVAL_MS / DROP_INTERVAL_MS) /
+      Math.log(SPEED_UP_FACTOR)
+    ) * SPEED_UP_SCORE_STEP;
+}
 
 
 /* =========================================================
@@ -1171,6 +1328,7 @@ let isPaused = false;
 
 let turnsUntilRise;
 let bagColorSlots;
+let bagCells;
 let whiteBudget;
 
 let speedTier;
@@ -1179,6 +1337,8 @@ let riseColorBag;
 let riseEventCount;
 
 let gameGen = 0;
+
+let gameMode = 'endless';
 
 let previousScreen = 'titleScreen';
 let currentRulePage = 1;
@@ -1242,6 +1402,8 @@ function sleep(ms){
 
 function refillBag(){
 
+  bagCells = [];
+
   bagColorSlots = [];
 
   for(
@@ -1250,6 +1412,17 @@ function refillBag(){
     i++
   ){
     bagColorSlots.push('R');
+  }
+
+  if(GREEN_CELL_COUNT > 0){
+
+    for(
+      let i=0;
+      i<GREEN_CELL_COUNT;
+      i++
+    ){
+      bagColorSlots.push('G');
+    }
   }
 
   for(
@@ -1266,6 +1439,149 @@ function refillBag(){
     cellsLeft: WHITE_CELL_COUNT,
     sumLeft: WHITE_TOTAL_SUM
   };
+
+  for(
+    const color of bagColorSlots
+  ){
+
+    const val =
+      (color==='R' || color==='G')
+        ? randInt(1,6)
+        : drawWhiteValue();
+
+    bagCells.push({
+      val,
+      color
+    });
+  }
+
+  if(
+    gameMode === 'endless' ||
+    gameMode === 'genkai'
+  ){
+    arrangeEndlessBag(bagCells);
+  }
+}
+
+
+function arrangeEndlessBag(cells){
+
+  for(
+    let attempt=0;
+    attempt<200;
+    attempt++
+  ){
+
+    shuffle(cells);
+
+    let valid = true;
+
+    for(
+      let i=0;
+      i<cells.length;
+      i+=2
+    ){
+
+      if(
+        cells[i].val === cells[i+1].val &&
+        cells[i].color === cells[i+1].color
+      ){
+        valid = false;
+        break;
+      }
+    }
+
+    if(valid){
+      return;
+    }
+  }
+
+  const result = [];
+  const used = Array(cells.length).fill(false);
+
+  function search(){
+
+    if(result.length === cells.length){
+      return true;
+    }
+
+    let first = -1;
+
+    for(
+      let i=0;
+      i<cells.length;
+      i++
+    ){
+
+      if(!used[i]){
+        first = i;
+        break;
+      }
+    }
+
+    if(first < 0){
+      return true;
+    }
+
+    used[first] = true;
+
+    const candidates = [];
+
+    for(
+      let i=0;
+      i<cells.length;
+      i++
+    ){
+
+      if(used[i]){
+        continue;
+      }
+
+      if(
+        cells[first].val === cells[i].val &&
+        cells[first].color === cells[i].color
+      ){
+        continue;
+      }
+
+      candidates.push(i);
+    }
+
+    shuffle(candidates);
+
+    for(
+      const second of candidates
+    ){
+
+      used[second] = true;
+
+      result.push(cells[first]);
+      result.push(cells[second]);
+
+      if(search()){
+        return true;
+      }
+
+      result.pop();
+      result.pop();
+
+      used[second] = false;
+    }
+
+    used[first] = false;
+
+    return false;
+  }
+
+  if(search()){
+    for(
+      let i=0;
+      i<cells.length;
+      i++
+    ){
+      cells[i] = result[i];
+    }
+  }
 }
 
 
@@ -1300,20 +1616,33 @@ function drawWhiteValue(){
 
 function drawCell(){
 
-  if(bagColorSlots.length===0){
+  if(
+    gameMode === 'endless' ||
+    gameMode === 'genkai'
+  ){
+
+    if(
+      !bagCells ||
+      bagCells.length===0
+    ){
+      refillBag();
+    }
+
+    return bagCells.pop();
+  }
+
+  if(
+    !bagColorSlots ||
+    bagColorSlots.length===0
+  ){
     refillBag();
   }
 
   const color =
     bagColorSlots.pop();
 
-  const val =
-    color==='R'
-      ? randInt(1,6)
-      : drawWhiteValue();
-
   return {
-    val,
+    val:randInt(1, EASY_DIE_MAX),
     color
   };
 }
@@ -1330,7 +1659,10 @@ function makePiece(){
 
   return {
     row:0,
-    col:2,
+    col:
+      COLS === 7
+        ? 3
+        : 2,
     state:1,
 
     A:cellA.val,
@@ -1496,9 +1828,36 @@ function canPlace(
    新規ゲーム
 ========================================================= */
 
-function newGame(){
+function newGame(mode = 'endless'){
 
   gameGen++;
+
+  gameMode = mode;
+
+  applyModeConfig(mode);
+
+  const boardEl =
+    document.getElementById('board');
+
+  boardEl.style.gridTemplateColumns =
+    'repeat(' + COLS + ', 1fr)';
+
+  boardEl.style.gridTemplateRows =
+    'repeat(' + TOTAL_ROWS + ', 1fr)';
+
+  const frameEl =
+    document.getElementById('boardFrame');
+
+  frameEl.style.aspectRatio =
+    COLS + ' / ' + TOTAL_ROWS;
+
+  const dl =
+    document.querySelector('.dead-line');
+
+  if(dl){
+    dl.style.top =
+      'calc(100% / ' + TOTAL_ROWS + ' * 2)';
+  }
 
   board =
     Array.from(
@@ -1518,9 +1877,6 @@ function newGame(){
   gameOver = false;
   isPaused = false;
 
-  /*
-   * リトライ時にスコア表示も即座に0へ戻す。
-   */
   updateStats();
 
   turnsUntilRise = RISE_INTERVAL;
@@ -1583,17 +1939,40 @@ function resetDropTimer(){
     !gameOver
   ){
 
-    const interval =
-      Math.max(
-        MIN_DROP_INTERVAL_MS,
-        Math.round(
-          DROP_INTERVAL_MS *
-          Math.pow(
-            SPEED_UP_FACTOR,
-            speedTier
-          )
+    const normalInterval =
+      Math.round(
+        DROP_INTERVAL_MS *
+        Math.pow(
+          SPEED_UP_FACTOR,
+          speedTier
         )
       );
+
+    let interval;
+
+    if(score < SPEED_CAP_SCORE){
+
+      interval =
+        Math.max(
+          MIN_DROP_INTERVAL_MS,
+          normalInterval
+        );
+
+    }else{
+
+      const postCapTier =
+        Math.floor(
+          (score - SPEED_CAP_SCORE) /
+          POST_CAP_STEP_SCORE
+        );
+
+      interval =
+        Math.max(
+          POST_CAP_MIN_DROP_INTERVAL_MS,
+          MIN_DROP_INTERVAL_MS -
+          postCapTier * POST_CAP_STEP_MS
+        );
+    }
 
     dropTimer =
       setInterval(
@@ -1926,6 +2305,15 @@ async function lock(){
       )
     ){
 
+      /* 【修正箇所】直前のセルの反応で既に重力落下・消去済みの場合、
+         旧座標のまま反応させない（ゴースト消去防止） */
+      if(
+        board[cell.r][cell.c] !== cell.val ||
+        boardColor[cell.r][cell.c] !== cell.color
+      ){
+        continue;
+      }
+
       await performAction(
         cell.r,
         cell.c,
@@ -1961,13 +2349,6 @@ async function animateSplitFaller(
   const startR = faller.r;
   const fc = faller.c;
 
-  /*
-   * 分離したダイスは、現在の位置から
-   * 1マスずつ同じ速度で落とす。
-   *
-   * まだ盤面には置かず、
-   * 各ステップで仮の位置へ配置して描画する。
-   */
   for(
     let step=1;
     step<=targetR-startR;
@@ -2050,12 +2431,15 @@ async function lockWithSplit(
     )
   ){
 
+    /* 【修正箇所】分離着地時、自分で置いたもう片方のダイスとは反応しない */
     await performAction(
       supported.r,
       supported.c,
       supported.val,
       supported.color,
-      supported.dirs
+      supported.dirs,
+      0,
+      [ { r: faller.r, c: faller.c } ]
     );
 
     if(gen !== gameGen){
@@ -2090,10 +2474,6 @@ async function lockWithSplit(
 
     const startR = faller.r;
 
-    /*
-     * 分離したダイスも、
-     * 連鎖落下と同じ速度で1マスずつ落とす。
-     */
     if(fr > startR){
 
       const completed =
@@ -2129,12 +2509,15 @@ async function lockWithSplit(
       }
     }
 
+    /* 【修正箇所】分離着地時、自分で置いたもう片方のダイスとは反応しない */
     await performAction(
       fr,
       fc,
       faller.val,
       faller.color,
-      FALL_DIRS
+      FALL_DIRS,
+      0,
+      [ { r: supported.r, c: supported.c } ]
     );
 
     if(gen !== gameGen){
@@ -2167,10 +2550,24 @@ async function afterTurnResolved(){
   updateStats();
   updateSpeed();
 
+  if(
+    gameMode === 'easy' &&
+    score >= EASY_CLEAR_SCORE
+  ){
+
+    resolving = false;
+
+    clearGame();
+
+    return;
+  }
+
   turnsUntilRise--;
 
   const nextRiseIsDouble =
-    (riseEventCount+1)%5===0;
+    gameMode === 'easy'
+      ? false
+      : (riseEventCount+1)%5===0;
 
   if(
     turnsUntilRise===2 &&
@@ -2190,7 +2587,9 @@ async function afterTurnResolved(){
       RISE_INTERVAL;
 
     const isDouble =
-      (riseEventCount+1)%5===0;
+      gameMode === 'easy'
+        ? false
+        : (riseEventCount+1)%5===0;
 
     riseEventCount++;
 
@@ -2224,7 +2623,9 @@ async function performAction(
   c,
   value,
   color,
-  dirs
+  dirs,
+  chainLevel = 0,
+  exclude = []
 ){
 
   const gen = gameGen;
@@ -2253,8 +2654,19 @@ async function performAction(
       continue;
     }
 
+    /* 【修正箇所】色判定：異色のダイスとは反応しない */
     if(
       boardColor[nr][nc]!==color
+    ){
+      continue;
+    }
+
+    /* 【修正箇所】同じピース由来のセル同士は反応しない
+       （プレイヤーが自ら置いたブロック同士は反応しない） */
+    if(
+      exclude.some(
+        e => e.r===nr && e.c===nc
+      )
     ){
       continue;
     }
@@ -2286,7 +2698,21 @@ async function performAction(
 
       board[o.nr][o.nc] = 0;
 
-      score += 10;
+      /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
+      boardColor[o.nr][o.nc] = 'W';
+
+      score += BASE_MATCH_SCORE;
+
+      if(chainLevel > 0){
+
+        score += CHAIN_BONUS_SCORE;
+
+        showChainScorePopup(
+          o.nr,
+          o.nc,
+          CHAIN_BONUS_SCORE
+        );
+      }
 
       affectedCols.add(
         o.nc
@@ -2304,6 +2730,9 @@ async function performAction(
 
     board[r][c] = 0;
 
+    /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
+    boardColor[r][c] = 'W';
+
     affectedCols.add(c);
   }
 
@@ -2318,14 +2747,7 @@ async function performAction(
 
 
   /* -------------------------------------------------------
-     今回の変更点
-     
-     これまではここで
-     compactColumnWithTracking()
-     によって一瞬で落としていた。
-
-     今回は animateChainFall() を使い、
-     1マスずつゆっくり落とす。
+     重力落下アニメーション
   ------------------------------------------------------- */
 
   const fallenDice =
@@ -2336,10 +2758,6 @@ async function performAction(
       : [];
 
 
-  /*
-   * リトライやタイトル移動などで
-   * 世代が変わった場合は処理を中止。
-   */
   if(fallenDice === null){
     return;
   }
@@ -2370,7 +2788,8 @@ async function performAction(
         dieInfo.col,
         dieInfo.val,
         dieInfo.color,
-        FALL_DIRS
+        FALL_DIRS,
+        chainLevel + 1
       );
 
       if(gen !== gameGen){
@@ -2385,12 +2804,6 @@ async function performAction(
    連鎖時の重力落下アニメーション
 ========================================================= */
 
-/*
- * affectedCols に含まれる列について、
- * 各ダイスが最終的にどこまで落ちるかを計算する。
- *
- * ここではまだ盤面を動かさない。
- */
 function prepareChainFall(columns){
 
   const plans = [];
@@ -2403,11 +2816,6 @@ function prepareChainFall(columns){
 
     const items = [];
 
-    /*
-     * 下から上へ拾う。
-     * こうすることで、
-     * 最終的な配置も下から順番に決まる。
-     */
     for(
       let r=TOTAL_ROWS-1;
       r>=0;
@@ -2464,22 +2872,6 @@ function prepareChainFall(columns){
 }
 
 
-/*
- * 連鎖時の重力落下を実際にアニメーションさせる。
- *
- * 「全部を一気に下へ移動」
- * ではなく、
- *
- * 1マス落下
- * ↓
- * render
- * ↓
- * 少し待つ
- * ↓
- * 1マス落下
- *
- * を繰り返す。
- */
 async function animateChainFall(
   columns
 ){
@@ -2495,10 +2887,6 @@ async function animateChainFall(
     );
 
 
-  /*
-   * 落下距離が0なら
-   * アニメーション不要。
-   */
   if(maxDrop<=0){
 
     const fallenDice = [];
@@ -2535,9 +2923,6 @@ async function animateChainFall(
   }
 
 
-  /*
-   * 1マスずつ落下。
-   */
   for(
     let step=1;
     step<=maxDrop;
@@ -2548,24 +2933,12 @@ async function animateChainFall(
       return null;
     }
 
-    /*
-     * affectedCols の列だけ
-     * 再構築する。
-     *
-     * これにより、アニメーション途中で
-     * ダイス同士が重なったり、
-     * 位置がずれたりするのを防ぐ。
-     */
     for(
       const plan of plans
     ){
 
       const c = plan.c;
 
-
-      /*
-       * 対象列を一旦空にする。
-       */
       for(
         let r=0;
         r<TOTAL_ROWS;
@@ -2577,10 +2950,6 @@ async function animateChainFall(
         boardColor[r][c] = 'W';
       }
 
-
-      /*
-       * 現在の落下位置に配置。
-       */
       for(
         const item of plan.items
       ){
@@ -2600,31 +2969,17 @@ async function animateChainFall(
       }
     }
 
-
-    /*
-     * 1マス落ちた状態を画面に表示。
-     */
     render();
 
-
-    /*
-     * ここが「落下を遅くする」部分。
-     */
     await sleep(
       CHAIN_FALL_STEP_MS
     );
-
 
     if(gameGen !== gen){
       return null;
     }
   }
 
-
-  /*
-   * 全落下完了後、
-   * 次の連鎖判定に使用するダイスを記録。
-   */
   const fallenDice = [];
 
   for(
@@ -2655,19 +3010,12 @@ async function animateChainFall(
     }
   }
 
-
-  /*
-   * 落下完了直後に少しだけ間を取る。
-   * これで「落ちた → すぐ消える」が
-   * 多少見やすくなる。
-   */
   if(maxDrop>0){
 
     await sleep(
       CHAIN_FALL_SETTLE_MS
     );
   }
-
 
   return fallenDice;
 }
@@ -2677,12 +3025,6 @@ async function animateChainFall(
    旧・即時コンパクション
 ========================================================= */
 
-/*
- * 現在は animateChainFall() を使用しているため、
- * 通常の連鎖処理では使わない。
- *
- * 念のため関数自体は残している。
- */
 function compactColumnWithTracking(c){
 
   const existing = [];
@@ -2770,6 +3112,17 @@ function refillRiseBag(){
     riseColorBag.push('R');
   }
 
+  if(RISE_GREEN_COUNT > 0){
+
+    for(
+      let i=0;
+      i<RISE_GREEN_COUNT;
+      i++
+    ){
+      riseColorBag.push('G');
+    }
+  }
+
   for(
     let i=0;
     i<RISE_WHITE_COUNT;
@@ -2797,11 +3150,15 @@ function drawRiseCell(){
     riseColorBag.pop();
 
   const val =
-    color==='R'
-      ? randInt(1,6)
-      : randInt(
-          RISE_MIN,
-          RISE_MAX
+    gameMode === 'easy'
+      ? randInt(1, EASY_DIE_MAX)
+      : (
+          (color==='R' || color==='G')
+            ? randInt(1,6)
+            : randInt(
+                RISE_MIN,
+                RISE_MAX
+              )
         );
 
   return {
@@ -2959,6 +3316,47 @@ function endGame(){
 
   clearInterval(dropTimer);
 
+  const msg =
+    document.getElementById('overlayMsg');
+
+  if(msg){
+
+    msg.textContent = 'GAME OVER';
+
+    msg.classList.remove('clear');
+  }
+
+  document
+    .getElementById('overlay')
+    .classList
+    .add('show');
+}
+
+
+/* =========================================================
+   クリア（かんたんモード）
+========================================================= */
+
+function clearGame(){
+
+  gameOver = true;
+
+  isPaused = false;
+
+  clearWarningStripe();
+
+  clearInterval(dropTimer);
+
+  const msg =
+    document.getElementById('overlayMsg');
+
+  if(msg){
+
+    msg.textContent = 'CLEAR!';
+
+    msg.classList.add('clear');
+  }
+
   document
     .getElementById('overlay')
     .classList
@@ -2971,6 +3369,8 @@ function endGame(){
 ========================================================= */
 
 function updateSpeed(){
+
+  if(gameMode === 'easy') return;
 
   const tier =
     Math.floor(
@@ -3000,6 +3400,43 @@ function updateStats(){
 
 
 /* =========================================================
+   連鎖ボーナス「+5」表示
+========================================================= */
+
+function showChainScorePopup(
+  r,
+  c,
+  amount
+){
+
+  const frame =
+    document.getElementById('boardFrame');
+
+  if(!frame) return;
+
+  const el =
+    document.createElement('div');
+
+  el.className = 'score-popup';
+
+  el.textContent = '+' + amount;
+
+  el.style.left =
+    ((c + 0.5) / COLS * 100) + '%';
+
+  el.style.top =
+    ((r + 0.5) / TOTAL_ROWS * 100) + '%';
+
+  frame.appendChild(el);
+
+  setTimeout(
+    () => el.remove(),
+    500
+  );
+}
+
+
+/* =========================================================
    ダイスHTML
 ========================================================= */
 
@@ -3015,7 +3452,7 @@ function dieHTML(
   const colorClass =
     color==='R'
       ? 'red'
-      : '';
+      : (color==='G' ? 'green' : '');
 
   let html =
     `<div class="die ${colorClass} ${extraClass||''}">`;
@@ -3096,9 +3533,6 @@ function render(){
   }
 
 
-  /*
-   * 落下中の現在ピースを重ねる。
-   */
   if(current){
 
     for(
@@ -3138,9 +3572,14 @@ function render(){
       const v =
         g[r][c];
 
+      const cellCls =
+        r < BUFFER_ROWS
+          ? 'cell buffer-cell'
+          : 'cell';
+
       html +=
         v===0
-          ? '<div class="cell"></div>'
+          ? '<div class="' + cellCls + '"></div>'
           : dieHTML(
               v,
               gColor[r][c]
@@ -3289,7 +3728,7 @@ function goToTitle(){
 ========================================================= */
 
 document
-  .getElementById('btnStart')
+  .getElementById('btnStartEndless')
   .addEventListener(
     'click',
     ()=>{
@@ -3298,7 +3737,37 @@ document
         'titleScreen'
       );
 
-      newGame();
+      newGame('endless');
+    }
+  );
+
+
+document
+  .getElementById('btnStartEasy')
+  .addEventListener(
+    'click',
+    ()=>{
+
+      hideScreen(
+        'titleScreen'
+      );
+
+      newGame('easy');
+    }
+  );
+
+
+document
+  .getElementById('btnStartBreak')
+  .addEventListener(
+    'click',
+    ()=>{
+
+      hideScreen(
+        'titleScreen'
+      );
+
+      newGame('genkai');
     }
   );
 
@@ -3313,7 +3782,7 @@ document
     'click',
     ()=>{
 
-      newGame();
+      newGame(gameMode);
     }
   );
 
@@ -3370,7 +3839,7 @@ document
         'menuOverlay'
       );
 
-      newGame();
+      newGame(gameMode);
     }
   );
 
