@@ -1,4 +1,4 @@
-[source: 5]<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -45,12 +45,17 @@
     justify-content: center;
     font-family: 'Inter', sans-serif;
     color: var(--cream);
+    position: relative;
   }
 
   .viewport-scaler {
     width: 360px;
     height: 640px;
-    position: relative;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
     background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-0) 80%);
     display: flex;
     flex-direction: column;
@@ -698,7 +703,7 @@
     <button id="btnTitleRules" class="big-btn">遊び方</button>
     <button id="btnTitleControls" class="big-btn">操作説明</button>
 
-    <div class="version-label" id="versionLabel">Ver.0.9.7.4</div>
+    <div class="version-label" id="versionLabel">Ver.0.9.7.5</div>
   </div>
 
   <!-- ゲーム内ポーズメニュー -->
@@ -976,7 +981,8 @@ function autoScaleUI() {
     window.innerHeight / targetH
   );
 
-  scaler.style.transform = `scale(${scale})`;
+  /* 【修正箇所】常に画面中央を基準にスケーリング（レイアウトの中央維持） */
+  scaler.style.transform = `translate(-50%, -50%) scale(${scale})`;
   scaler.style.transformOrigin = 'center center';
 
   const boardFrame = document.getElementById('boardFrame');
@@ -995,6 +1001,8 @@ function autoScaleUI() {
 
 window.addEventListener('resize', autoScaleUI);
 window.addEventListener('orientationchange', autoScaleUI);
+/* 【修正箇所】フォント読込完了後に幅を再計測し、中央ズレを解消 */
+window.addEventListener('load', autoScaleUI);
 
 document.addEventListener('DOMContentLoaded', ()=>{
 
@@ -2149,6 +2157,15 @@ async function lock(){
       )
     ){
 
+      /* 【修正箇所】直前のセルの反応で既に重力落下・消去済みの場合、
+         旧座標のまま反応させない（ゴースト消去防止） */
+      if(
+        board[cell.r][cell.c] !== cell.val ||
+        boardColor[cell.r][cell.c] !== cell.color
+      ){
+        continue;
+      }
+
       await performAction(
         cell.r,
         cell.c,
@@ -2266,12 +2283,15 @@ async function lockWithSplit(
     )
   ){
 
+    /* 【修正箇所】分離着地時、自分で置いたもう片方のダイスとは反応しない */
     await performAction(
       supported.r,
       supported.c,
       supported.val,
       supported.color,
-      supported.dirs
+      supported.dirs,
+      0,
+      [ { r: faller.r, c: faller.c } ]
     );
 
     if(gen !== gameGen){
@@ -2341,12 +2361,15 @@ async function lockWithSplit(
       }
     }
 
+    /* 【修正箇所】分離着地時、自分で置いたもう片方のダイスとは反応しない */
     await performAction(
       fr,
       fc,
       faller.val,
       faller.color,
-      FALL_DIRS
+      FALL_DIRS,
+      0,
+      [ { r: supported.r, c: supported.c } ]
     );
 
     if(gen !== gameGen){
@@ -2453,7 +2476,8 @@ async function performAction(
   value,
   color,
   dirs,
-  chainLevel = 0
+  chainLevel = 0,
+  exclude = []
 ){
 
   const gen = gameGen;
@@ -2489,6 +2513,16 @@ async function performAction(
       continue;
     }
 
+    /* 【修正箇所】同じピース由来のセル同士は反応しない
+       （プレイヤーが自ら置いたブロック同士は反応しない） */
+    if(
+      exclude.some(
+        e => e.r===nr && e.c===nc
+      )
+    ){
+      continue;
+    }
+
     targets.push({
       nr,
       nc,
@@ -2515,6 +2549,9 @@ async function performAction(
     if(o.diff===0){
 
       board[o.nr][o.nc] = 0;
+
+      /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
+      boardColor[o.nr][o.nc] = 'W';
 
       score += BASE_MATCH_SCORE;
 
@@ -2544,6 +2581,9 @@ async function performAction(
   if(contacted){
 
     board[r][c] = 0;
+
+    /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
+    boardColor[r][c] = 'W';
 
     affectedCols.add(c);
   }
