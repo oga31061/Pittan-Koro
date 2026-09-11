@@ -478,9 +478,70 @@
     display: flex;
   }
 
+  /* 起動時：音楽再生許可を得るための Press Any Key */
+  #pressAnyKeyScreen {
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .press-any-key {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    letter-spacing: 2px;
+    color: var(--cream);
+    text-shadow: 0 3px 12px rgba(0,0,0,.45);
+    animation: pressAnyKeyBlink 1.2s ease-in-out infinite;
+  }
+
+  .press-any-key-sub {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--cream-dim);
+  }
+
+  @keyframes pressAnyKeyBlink {
+    0%, 100% { opacity: .55; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(-2px); }
+  }
+
   /* タイトル画面：背景に散りばめるサイコロ */
   #titleScreen {
     overflow: hidden;
+  }
+
+  /* 起動直後はタイトルを見せたまま、メニューボタンだけ隠す */
+  #titleScreen.title-waiting .big-btn,
+  #titleScreen.title-waiting .language-label {
+    display: none;
+  }
+
+  /* 起動時はタイトル・サブタイトル・PRESS ANY KEYだけを中央に配置 */
+  #titleScreen.title-waiting {
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #titleScreen.title-waiting h1,
+  #titleScreen.title-waiting .subtitle-text,
+  #titleScreen.title-waiting .title-press-any-key {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .title-press-any-key {
+    margin-top: 8px;
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--cream);
+    text-shadow: 0 3px 12px rgba(0,0,0,.45);
+    animation: pressAnyKeyBlink 1.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  #titleScreen:not(.title-waiting) .title-press-any-key {
+    display: none;
   }
 
   .title-dice-bg {
@@ -571,11 +632,24 @@
 
   .version-label {
     position: absolute;
-    bottom: 8px;
-    left: 10px;
+    bottom: 6px;
+    left: 6px;
     font-size: 10px;
     color: var(--cream-dim);
     letter-spacing: 0.5px;
+    z-index: 2;
+  }
+
+  /* 【修正箇所】タイトル画面のバージョン表記はタイトル画面そのものの左下角に固定
+     原因: #titleScreen > :not(.title-dice-bg) が position:relative を付与しており、
+     同じ詳細度の .version-label 側は position を上書きしていなかったため、
+     Flexレイアウト（#titleScreen が display:flex; align-items:center; justify-content:center）
+     内の通常アイテムとして中央に配置されてしまっていた。
+     ここで明示的に position: absolute を指定し直し、Flexフローから完全に切り離す。 */
+  #titleScreen .version-label {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
   }
 
   .screen .big-btn {
@@ -874,7 +948,7 @@
 
 <div class="viewport-scaler" id="appScaler">
 
-  <!-- タイトル画面 -->
+  <!-- タイトル画面：最初の操作でBGMを再生し、メニューボタンを表示 -->
   <div id="titleScreen" class="screen show">
     <div class="title-dice-bg" aria-hidden="true">
       <div class="title-dice d1"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p22"></span></div>
@@ -892,6 +966,7 @@
     </div>
     <h1>ピッタンコロ</h1>
     <div class="subtitle-text" id="subtitleText">ピッタンころりん！ 落ちものサイコロパズル</div>
+    <div class="title-press-any-key" aria-hidden="true">PRESS ANY KEY</div>
 
     <button id="btnStartEasy" class="big-btn easy">かんたんモード</button>
     <button id="btnStartEndless" class="big-btn primary">エンドレスモード</button>
@@ -901,7 +976,7 @@
     <div class="language-label" id="languageLabel">言語</div>
     <button id="btnLanguage" class="big-btn language">日本語</button>
 
-    <div class="version-label" id="versionLabel">Ver.1.0.1</div>
+    <div class="version-label" id="versionLabel">Ver.1.0.2</div>
   </div>
 
     <div class="game-dice-bg" aria-hidden="true">
@@ -1325,6 +1400,36 @@ const bgm = document.getElementById('bgm');
 const btnAudio = document.getElementById('btnAudio');
 
 let isMuted = false;
+let titleInteractionStarted = false;
+
+function startFromTitleInteraction(){
+
+  if(titleInteractionStarted) return;
+  titleInteractionStarted = true;
+
+  // キー入力・タップというユーザー操作の中でBGMを開始します。
+  if(bgm && !isMuted){
+    bgm.play().catch(
+      e => console.log("Audio play blocked:", e)
+    );
+  }
+
+  // タイトル画面はそのまま。隠していたメニューボタンだけ表示します。
+  const titleScreen = document.getElementById('titleScreen');
+  if(titleScreen){
+    titleScreen.classList.remove('title-waiting');
+  }
+
+  window.removeEventListener('keydown', startFromTitleInteraction);
+  window.removeEventListener('pointerdown', startFromTitleInteraction);
+}
+
+// 起動直後の最初のキー入力・タップをBGM再生のユーザー操作として利用します。
+window.addEventListener('keydown', startFromTitleInteraction, { once: false });
+window.addEventListener('pointerdown', startFromTitleInteraction, { once: false });
+
+// タイトル画面は最初から表示し、メニューボタンだけを隠します。
+document.getElementById('titleScreen').classList.add('title-waiting');
 
 function playBGM(){
 
