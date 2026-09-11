@@ -46,7 +46,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Inter', sans-serif;
+    /* 【修正箇所】英語だけ 'Inter' Webフォントで描画され、日本語/中国語は
+       Interに無い字形のため自動的に sans-serif にフォールバックしていた。
+       フォントが言語ごとに異なるとアセント/ディセント比率の違いで
+       同じCSSでも文字の見た目の垂直位置が数px変わってしまうため、
+       'Inter' の明示指定をやめて全言語で同じ sans-serif 解決に統一する。 */
+    font-family: sans-serif;
     color: var(--cream);
     position: relative;
   }
@@ -976,7 +981,7 @@
     <div class="language-label" id="languageLabel">言語</div>
     <button id="btnLanguage" class="big-btn language">日本語</button>
 
-    <div class="version-label" id="versionLabel">Ver.1.0.2</div>
+    <div class="version-label" id="versionLabel">Ver.1.0.3</div>
   </div>
 
     <div class="game-dice-bg" aria-hidden="true">
