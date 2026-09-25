@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>ピッタンコロ | 落ちものサイコロパズル</title>
+<title id="pageTitle">ピッタンコロ | 落ちものサイコロパズル</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -46,7 +46,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Inter', sans-serif;
+    /* 【修正箇所】英語だけ 'Inter' Webフォントで描画され、日本語/中国語は
+       Interに無い字形のため自動的に sans-serif にフォールバックしていた。
+       フォントが言語ごとに異なるとアセント/ディセント比率の違いで
+       同じCSSでも文字の見た目の垂直位置が数px変わってしまうため、
+       'Inter' の明示指定をやめて全言語で同じ sans-serif 解決に統一する。 */
+    font-family: sans-serif;
     color: var(--cream);
     position: relative;
   }
@@ -59,7 +64,10 @@
     top: 50%;
     transform: translate(-50%, -50%) scale(1);
     transform-origin: center center;
-    background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-0) 80%);
+    /* 【修正箇所】ゲーム画面の背景（サイコロの模様の下地）：
+       タイトルの空のグラデーションをそのまま暗くしたもの（各色の明るさ30%）。
+       盤面との明るさの差を小さくして目の負担を抑える */
+    background: linear-gradient(180deg, #183144 0%, #253A47 50%, #36444A 100%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -68,7 +76,44 @@
     box-shadow: 0 0 20px rgba(0,0,0,0.8);
   }
 
+  /* メインゲーム画面：タイトルと同じサイコロ背景 */
+  #titleScreen.show ~ .game-dice-bg {
+    display: none;
+  }
+
+  .game-dice-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    /* 【追加】ゲーム中の背景のサイコロ模様をぼかして、盤面を引き立てる */
+    filter: blur(3px);
+  }
+
+  .game-dice-bg .title-dice {
+    opacity: .10;
+    transform: rotate(var(--rot));
+    animation: titleDiceFloat var(--dur) ease-in-out infinite alternate;
+    animation-delay: var(--delay);
+  }
+
+  .game-dice-bg .d1{left:3%;top:8%}
+  .game-dice-bg .d2{left:86%;top:12%}
+  .game-dice-bg .d3{left:-4%;top:27%}
+  .game-dice-bg .d4{left:88%;top:34%}
+  .game-dice-bg .d5{left:5%;top:50%}
+  .game-dice-bg .d6{left:87%;top:57%}
+  .game-dice-bg .d7{left:1%;top:76%}
+  .game-dice-bg .d8{left:84%;top:80%}
+  .game-dice-bg .d9{left:44%;top:3%;opacity:.07}
+  .game-dice-bg .d10{left:53%;top:91%;opacity:.08}
+  .game-dice-bg .d11{left:22%;top:91%;opacity:.08}
+  .game-dice-bg .d12{left:94%;top:70%;opacity:.08}
+
   .board-wrap {
+    position: relative;
+    z-index: 1;
     flex: 1 1 auto;
     display: flex;
     align-items: center;
@@ -115,6 +160,8 @@
   }
 
   .header-panel {
+    position: relative;
+    z-index: 1;
     height: 56px;
     width: 100%;
     display: flex;
@@ -170,9 +217,9 @@
   }
 
   .next-box .die {
+    --s: 26px;
     width: 26px;
     height: 26px;
-    padding: 6%;
   }
 
   .audio-btn,
@@ -200,6 +247,55 @@
     gap: 2px;
   }
 
+  /* 操作中ピースの重ね表示レイヤー（#board と同じ範囲） */
+  .piece-layer {
+    position: absolute;
+    inset: 4px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .piece-layer .die {
+    position: absolute;
+    left: 0;
+    top: 0;
+    will-change: transform;
+  }
+
+  /* 演出用レイヤー（画面全体・操作を邪魔しない） */
+  .fx-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+    overflow: hidden;
+  }
+
+  .fx-glow,
+  .fx-ring,
+  .fx-particle {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .fx-glow {
+    border-radius: 50%;
+  }
+
+  .fx-ring {
+    border: 1px solid;
+    border-radius: 50%;
+    box-sizing: border-box;
+  }
+
+  .fx-particle {
+    border-radius: 50%;
+    background: #FFFFFA;
+    box-shadow:
+      0 0 3px 1px rgba(255,255,245,0.5),
+      0 0 8px 1px rgba(255,255,245,0.2);
+  }
+
   .cell.buffer-cell {
     background: var(--buffer-slot);
   }
@@ -221,15 +317,77 @@
     opacity: 0.75;
   }
 
+  /* =========================================================
+     サイコロの質感（参考画像の再現）
+     ・つるっとした1枚の面。縁は内側へ柔らかく丸まる
+     ・外周にダイスの色に合わせた細い明るい縁、そのすぐ内側にぼんやり暗い輪
+     ・上の縁の内側に横長で縦に柔らかい反射、左上に小さなきらめき
+     ・下にごく薄い厚み（手前の側面）と、ダイスの下に落ち影
+     --s：ダイスの大きさ(px)。盤面・操作中のピースは JS で設定、NEXT は 26px
+  ========================================================= */
   .die {
-    border-radius: 3px;
+    --s: 42px;
+    --d-base:#EFE7D5; --d-top:#FFFFFA; --d-side:#D6CAB0; --d-side-dark:#B3A283; --d-floor:#E6DCC8;
+    --d-rim:rgba(176,139,60,.65); --d-curl:.14; --d-edge-lt:.7; --d-hl:.75; --d-glint:.6;
+    --d-pip:#1B1511; --d-pip-shade:rgba(0,0,0,.6);
+
+    position: relative;
+    box-sizing: border-box;
+    border-radius: calc(var(--s) * .18);
+    padding: calc(var(--s) * .13) calc(var(--s) * .13) calc(var(--s) * .15);
     display: grid;
     grid-template-columns: repeat(3,1fr);
     grid-template-rows: repeat(3,1fr);
-    padding: 6%;
-    background: var(--die-bg);
-    border: 1.5px solid var(--die-border);
-    box-sizing: border-box;
+    background:
+      linear-gradient(180deg,
+        var(--d-top) 0%, var(--d-base) 10%, var(--d-base) 91%,
+        var(--d-side) 94%, var(--d-side-dark) 99%, var(--d-floor) 100%);
+    box-shadow:
+      inset 0 0 0 1.5px var(--d-rim),
+      inset 0 0 calc(var(--s) * .07) calc(var(--s) * .015) rgba(0,0,0,var(--d-curl)),
+      inset 0 calc(var(--s) * .05) calc(var(--s) * .06) calc(var(--s) * -.02) rgba(255,255,255,var(--d-edge-lt)),
+      inset calc(var(--s) * .04) 0 calc(var(--s) * .05) calc(var(--s) * -.02) rgba(255,255,255,calc(var(--d-edge-lt) * .6)),
+      0 calc(var(--s) * .035) calc(var(--s) * .06) rgba(0,0,0,.65);
+  }
+
+  /* 上の縁の内側の反射（横長・縦に柔らかい） */
+  .die::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    left: calc(var(--s) * .16);
+    right: calc(var(--s) * .16);
+    top: calc(var(--s) * .04);
+    height: calc(var(--s) * .1);
+    background: linear-gradient(90deg,
+      rgba(255,255,255,0), rgba(255,255,255,var(--d-hl)) 20%,
+      rgba(255,255,255,var(--d-hl)) 80%, rgba(255,255,255,0));
+    -webkit-mask-image: linear-gradient(180deg,transparent,#000 40%,#000 50%,transparent);
+            mask-image: linear-gradient(180deg,transparent,#000 40%,#000 50%,transparent);
+  }
+
+  /* 左上の角のきらめき */
+  .die::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    left: calc(var(--s) * .05);
+    top: calc(var(--s) * .06);
+    width: calc(var(--s) * .1);
+    height: calc(var(--s) * .1);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,var(--d-glint)), rgba(255,255,255,0) 70%);
+  }
+
+  /* 目は反射より手前、マスの中央に */
+  .die > div {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .pip {
@@ -241,22 +399,23 @@
     background: var(--die-pip);
   }
 
-  .die.red {
-    background: var(--die-red-bg);
-    border-color: var(--die-red-border);
+  .die .pip {
+    width: 66%;
+    height: 66%;
+    background: var(--d-pip);
+    box-shadow: inset 0 1px 1px var(--d-pip-shade);
   }
 
-  .die.red .pip {
-    background: var(--die-red-pip);
+  .die.red {
+    --d-base:#7C2520; --d-top:#A0413A; --d-side:#5E1813; --d-side-dark:#3F0E0B; --d-floor:#A4554D;
+    --d-rim:rgba(235,135,125,.6); --d-curl:.35; --d-edge-lt:.22; --d-hl:.4; --d-glint:.55;
+    --d-pip:#F0E6D3; --d-pip-shade:rgba(0,0,0,.3);
   }
 
   .die.green {
-    background: var(--die-green-bg);
-    border-color: var(--die-green-border);
-  }
-
-  .die.green .pip {
-    background: var(--die-green-pip);
+    --d-base:#213F31; --d-top:#3D6653; --d-side:#162C21; --d-side-dark:#0C1A13; --d-floor:#4A7462;
+    --d-rim:rgba(125,200,150,.55); --d-curl:.38; --d-edge-lt:.2; --d-hl:.38; --d-glint:.5;
+    --d-pip:#E2F0E4; --d-pip-shade:rgba(0,0,0,.3);
   }
 
   .p00{grid-area:1/1;}
@@ -350,22 +509,171 @@
     transform: translate(-50%,-50%);
     font-family: 'Fraunces', serif;
     font-weight: 700;
-    font-size: 13px;
-    color: var(--accent);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-    animation: scorePopupFloat 0.5s ease-out forwards;
+    font-size: 31px;
+    /* 流れる虹色（文字の中をグラデーションが横に流れる） */
+    background: linear-gradient(
+      90deg,
+      #FF6B6B, #FFB86B, #FFE66B, #7BED9F, #6BC8FF, #B38BFF, #FF6B6B
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+    will-change: transform, opacity;
+    animation:
+      scorePopupJump 1s linear forwards,
+      scorePopupFade 1s linear forwards,
+      rainbowFlow 0.6s linear infinite;
   }
 
-  @keyframes scorePopupFloat {
+  @keyframes rainbowFlow {
+
+    from {
+      background-position: 0% 50%;
+    }
+
+    to {
+      background-position: 200% 50%;
+    }
+  }
+
+  /* 連鎖ボーナス：素早く跳ね上がり、頂点からふわっと少し落ちる（位置・大きさ） */
+  @keyframes scorePopupJump {
 
     0% {
+      transform: translate(-50%,-50%) translateY(0) scale(0.6);
+      animation-timing-function: cubic-bezier(0.15, 0.85, 0.35, 1);
+    }
+
+    30% {
+      transform: translate(-50%,-50%) translateY(-96px) scale(1);
+      animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+    }
+
+    100% {
+      transform: translate(-50%,-50%) translateY(-78px) scale(1);
+    }
+  }
+
+  /* 連鎖ボーナス：すぐ現れ、落ち始めてからゆっくり消える（透明度） */
+  @keyframes scorePopupFade {
+
+    0% {
+      opacity: 0;
+    }
+
+    8% {
       opacity: 1;
-      transform: translate(-50%,-50%) translateY(0);
+    }
+
+    55% {
+      opacity: 1;
+      animation-timing-function: ease-in;
     }
 
     100% {
       opacity: 0;
-      transform: translate(-50%,-50%) translateY(-18px);
+    }
+  }
+
+  /* 引き算の式（例：3−2）：2つのダイスの真ん中に表示。
+     白文字＋灰色の縁取りで、どの色のダイスの上でも読めるようにする。
+     一文字ずつ左から順に控えめに跳ね上がる（ポポポンッ） */
+  .calc-popup {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    transform: translate(-50%,-50%);
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1;
+    white-space: nowrap;
+    color: rgba(255,255,255,0.6);
+    text-shadow:
+      -1.5px -1.5px 0 rgba(100,106,118,0.6),
+       0     -1.5px 0 rgba(100,106,118,0.6),
+       1.5px -1.5px 0 rgba(100,106,118,0.6),
+      -1.5px  0     0 rgba(100,106,118,0.6),
+       1.5px  0     0 rgba(100,106,118,0.6),
+      -1.5px  1.5px 0 rgba(100,106,118,0.6),
+       0      1.5px 0 rgba(100,106,118,0.6),
+       1.5px  1.5px 0 rgba(100,106,118,0.6);
+  }
+
+  .calc-char {
+    display: inline-block;
+    will-change: transform, opacity;
+    animation:
+      calcPopupJump 0.7s linear both,
+      calcPopupFade 0.7s linear both;
+  }
+
+  /* 消えたときの式：光沢のある金色（上が明るく中央で締まる金属風のグラデーション） */
+  /* 赤いダイスの引き算：赤色（白との違いが分かるよう不透明度を上げる） */
+  .calc-popup.red {
+    color: rgba(255,70,70,0.9);
+  }
+
+  .calc-popup.clear {
+    font-size: 21px;   /* 通常の式（15px）の1.4倍 */
+    text-shadow: none;
+  }
+
+  .calc-popup.clear .calc-char {
+    background: linear-gradient(
+      180deg,
+      #FFF6C8 0%,
+      #FFD95A 38%,
+      #C8900E 52%,
+      #F2C03A 70%,
+      #FFF0A8 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter:
+      drop-shadow(0 0 1px rgba(90,55,0,0.95))
+      drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+  }
+
+  @keyframes calcPopupJump {
+
+    0% {
+      transform: translateY(0) scale(0.7);
+      animation-timing-function: cubic-bezier(0.15, 0.85, 0.35, 1);
+    }
+
+    30% {
+      transform: translateY(-40px) scale(1);
+      animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+    }
+
+    100% {
+      transform: translateY(-32px) scale(1);
+    }
+  }
+
+  @keyframes calcPopupFade {
+
+    0% {
+      opacity: 0;
+    }
+
+    10% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 1;
+      animation-timing-function: ease-in;
+    }
+
+    100% {
+      opacity: 0;
     }
   }
 
@@ -429,7 +737,9 @@
     position: absolute;
     inset: 0;
     z-index: 50;
-    background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-0) 70%);
+    /* 【修正箇所】タイトル・メニュー・遊び方・操作説明の背景：空のような明るい青
+       （上空の澄んだ青 → 地平線に近い淡い水色） */
+    background: linear-gradient(180deg, #4FA3E3 0%, #7CC0EE 50%, #B5E2F8 100%);
     display: none;
     flex-direction: column;
     align-items: center;
@@ -441,26 +751,196 @@
     display: flex;
   }
 
+  /* 起動時：音楽再生許可を得るための Press Any Key */
+  #pressAnyKeyScreen {
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .press-any-key {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    letter-spacing: 2px;
+    color: var(--cream);
+    text-shadow: 0 3px 12px rgba(0,0,0,.45);
+    animation: pressAnyKeyBlink 1.2s ease-in-out infinite;
+  }
+
+  .press-any-key-sub {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--cream-dim);
+  }
+
+  @keyframes pressAnyKeyBlink {
+    0%, 100% { opacity: .55; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  /* タイトル画面：背景に散りばめるサイコロ */
+  #titleScreen {
+    overflow: hidden;
+  }
+
+  /* 起動直後はタイトルを見せたまま、メニューボタンだけ隠す */
+  #titleScreen.title-waiting .big-btn,
+  #titleScreen.title-waiting .language-label {
+    display: none;
+  }
+
+  /* 起動時はタイトル・サブタイトル・PRESS ANY KEYだけを中央に配置 */
+  #titleScreen.title-waiting {
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #titleScreen.title-waiting h1,
+  #titleScreen.title-waiting .subtitle-text,
+  #titleScreen.title-waiting .title-press-any-key {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .title-press-any-key {
+    margin-top: 8px;
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--cream);
+    text-shadow: 0 3px 12px rgba(0,0,0,.45);
+    animation: pressAnyKeyBlink 1.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  #titleScreen:not(.title-waiting) .title-press-any-key {
+    display: none;
+  }
+
+  .title-dice-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .title-dice {
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    padding: 7px;
+    border-radius: 9px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    background: var(--die-bg);
+    border: 2px solid var(--die-border);
+    box-shadow: 0 5px 12px rgba(0,0,0,.28);
+    opacity: .22;
+    transform: rotate(var(--rot));
+    animation: titleDiceFloat var(--dur) ease-in-out infinite alternate;
+    animation-delay: var(--delay);
+  }
+
+  .title-dice .pip {
+    width: 70%;
+    height: 70%;
+  }
+
+  .title-dice.red {
+    background: var(--die-red-bg);
+    border-color: var(--die-red-border);
+  }
+
+  .title-dice.red .pip {
+    background: var(--die-red-pip);
+  }
+
+  .title-dice.green {
+    background: var(--die-green-bg);
+    border-color: var(--die-green-border);
+  }
+
+  .title-dice.green .pip {
+    background: var(--die-green-pip);
+  }
+
+  .title-dice.d1{left:7%;top:8%;--rot:-16deg;--dur:3.8s;--delay:-.5s}
+  .title-dice.d2{left:78%;top:10%;--rot:14deg;--dur:4.4s;--delay:-1.8s}
+  .title-dice.d3{left:2%;top:30%;--rot:9deg;--dur:4.1s;--delay:-2.2s}
+  .title-dice.d4{left:84%;top:31%;--rot:-12deg;--dur:3.6s;--delay:-1s}
+  .title-dice.d5{left:8%;top:53%;--rot:17deg;--dur:4.7s;--delay:-3s}
+  .title-dice.d6{left:82%;top:55%;--rot:-18deg;--dur:4s;--delay:-.9s}
+  .title-dice.d7{left:19%;top:78%;--rot:-10deg;--dur:4.5s;--delay:-2.7s}
+  .title-dice.d8{left:70%;top:77%;--rot:13deg;--dur:3.9s;--delay:-1.4s}
+  .title-dice.d9{left:40%;top:6%;--rot:7deg;--dur:4.3s;--delay:-2s;opacity:.14}
+  .title-dice.d10{left:51%;top:88%;--rot:-8deg;--dur:4.6s;--delay:-3.4s;opacity:.15}
+  .title-dice.d11{left:-5%;top:68%;--rot:-22deg;--dur:4.2s;--delay:-1.7s;opacity:.16}
+  .title-dice.d12{left:91%;top:70%;--rot:21deg;--dur:3.7s;--delay:-.2s;opacity:.16}
+
+  @keyframes titleDiceFloat {
+    from { transform: translateY(0) rotate(var(--rot)); }
+    to { transform: translateY(-8px) rotate(calc(var(--rot) + 5deg)); }
+  }
+
+  #titleScreen > :not(.title-dice-bg) {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* 【追加】ポーズメニュー・遊び方・操作説明の背景：タイトルと同じサイコロ模様
+     （模様はタイトルの .title-dice-bg を起動時に複製して入れる） */
+  #menuOverlay,
+  #rulesOverlay,
+  #controlsOverlay {
+    overflow: hidden;
+  }
+
+  #menuOverlay > :not(.title-dice-bg),
+  #rulesOverlay > :not(.title-dice-bg),
+  #controlsOverlay > :not(.title-dice-bg) {
+    position: relative;
+    z-index: 1;
+  }
+
+
   .screen h1 {
     font-size: 28px;
     font-family: 'Fraunces', serif;
     margin-bottom: 2px;
     letter-spacing: 1px;
+    /* 【追加】タイトルだけ灰色の影 */
+    text-shadow: 0 2px 4px rgba(80,80,80,0.8);
   }
 
   .screen .subtitle-text {
     font-size: 11px;
-    color: var(--cream-dim);
+    /* 【修正箇所】白に */
+    color: #FFFFFF;
     margin-bottom: 12px;
   }
 
   .version-label {
     position: absolute;
-    bottom: 8px;
-    left: 10px;
+    bottom: 6px;
+    left: 6px;
     font-size: 10px;
-    color: var(--cream-dim);
+    color: #FFFFFF;
     letter-spacing: 0.5px;
+    z-index: 2;
+  }
+
+  /* 【修正箇所】タイトル画面のバージョン表記はタイトル画面そのものの左下角に固定
+     原因: #titleScreen > :not(.title-dice-bg) が position:relative を付与しており、
+     同じ詳細度の .version-label 側は position を上書きしていなかったため、
+     Flexレイアウト（#titleScreen が display:flex; align-items:center; justify-content:center）
+     内の通常アイテムとして中央に配置されてしまっていた。
+     ここで明示的に position: absolute を指定し直し、Flexフローから完全に切り離す。 */
+  #titleScreen .version-label {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
   }
 
   .screen .big-btn {
@@ -468,12 +948,26 @@
     border: 1px solid var(--line);
     color: var(--cream);
     border-radius: 10px;
-    padding: 12px 0;
+    box-sizing: border-box;
+    padding: 0;
     font-size: 15px;
     font-weight: 600;
     width: 180px;
+    height: 44px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     cursor: pointer;
+  }
+
+  .screen .language-label {
+    font-size: 11px;
+    color: var(--cream-dim);
+    line-height: 1;
+    margin-top: -2px;
+    margin-bottom: -2px;
   }
 
   .screen .big-btn.primary {
@@ -481,6 +975,18 @@
     color: #1A1208;
     border: none;
     font-weight: 700;
+  }
+
+.screen .big-btn.language {
+    background: var(--panel);
+    color: var(--cream);
+    border: 1px solid var(--line);
+    font-weight: 700;
+  }
+
+  .screen .big-btn.language:active {
+    background: #2A3648;
+    color: var(--cream);
   }
 
   .screen .big-btn.easy {
@@ -733,21 +1239,52 @@
 
 <div class="viewport-scaler" id="appScaler">
 
-  <!-- タイトル画面 -->
+  <!-- タイトル画面：最初の操作でBGMを再生し、メニューボタンを表示 -->
   <div id="titleScreen" class="screen show">
-    <h1>ピッタンコロ</h1>
-    <div class="subtitle-text">
-      ピッタンころりん！ 落ちものサイコロパズル
+    <div class="title-dice-bg" aria-hidden="true">
+      <div class="title-dice d1"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p22"></span></div>
+      <div class="title-dice red d2"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p11"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice green d3"><span class="pip p00"></span><span class="pip p22"></span></div>
+      <div class="title-dice d4"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice red d5"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p11"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice d6"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p10"></span><span class="pip p12"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice green d7"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice d8"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p22"></span></div>
+      <div class="title-dice d9"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice d10"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice red d11"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p22"></span></div>
+      <div class="title-dice d12"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p11"></span><span class="pip p20"></span><span class="pip p22"></span></div>
     </div>
+    <h1>ピッタンコロ</h1>
+    <div class="subtitle-text" id="subtitleText">ピッタンころりん！ 落ちものサイコロパズル</div>
+    <div class="title-press-any-key" aria-hidden="true">PRESS ANY KEY</div>
 
     <button id="btnStartEasy" class="big-btn easy">かんたんモード</button>
     <button id="btnStartEndless" class="big-btn primary">エンドレスモード</button>
     <button id="btnStartBreak" class="big-btn genkai">げんかいとっぱモード</button>
     <button id="btnTitleRules" class="big-btn">遊び方</button>
     <button id="btnTitleControls" class="big-btn">操作説明</button>
+    <div class="language-label" id="languageLabel">言語</div>
+    <button id="btnLanguage" class="big-btn language">日本語</button>
 
-    <div class="version-label" id="versionLabel">Ver.0.9.9</div>
+    <div class="version-label" id="versionLabel">Ver.1.5</div>
   </div>
+
+    <div class="game-dice-bg" aria-hidden="true">
+      <div class="title-dice d1"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p22"></span></div>
+      <div class="title-dice red d2"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p11"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice green d3"><span class="pip p00"></span><span class="pip p22"></span></div>
+      <div class="title-dice d4"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice red d5"><span class="pip p00"></span><span class="pip p22"></span></div>
+      <div class="title-dice d6"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice green d7"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice d8"><span class="pip p00"></span><span class="pip p11"></span><span class="pip p22"></span></div>
+      <div class="title-dice d9"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice red d10"><span class="pip p00"></span><span class="pip p22"></span></div>
+      <div class="title-dice d11"><span class="pip p00"></span><span class="pip p02"></span><span class="pip p11"></span><span class="pip p20"></span><span class="pip p22"></span></div>
+      <div class="title-dice green d12"><span class="pip p00"></span><span class="pip p22"></span></div>
+    </div>
+
 
   <!-- ゲーム内ポーズメニュー -->
   <div id="menuOverlay" class="screen">
@@ -762,7 +1299,7 @@
   <div id="rulesOverlay" class="screen">
     <div class="modal-box">
 
-      <div class="modal-title">遊び方</div>
+      <div class="modal-title" id="rulesModalTitle">遊び方</div>
       
       <div class="tab-content">
 
@@ -868,7 +1405,7 @@
 
     <div class="modal-box">
 
-      <div class="modal-title">操作説明</div>
+      <div class="modal-title" id="controlsModalTitle">操作説明</div>
 
       <div class="tab-header">
         <button class="tab-btn active" id="tabMobile">スマホ</button>
@@ -942,14 +1479,14 @@
   <div class="header-panel" id="headerPanel">
 
     <div class="score-area">
-      <span class="l">SCORE</span>
+      <span class="l" id="scoreLabel">SCORE</span>
       <span class="v" id="scoreVal">0</span>
     </div>
 
     <div style="display:flex; align-items:center;">
 
       <div class="next-area">
-        <span class="next-label">NEXT</span>
+        <span class="next-label" id="nextLabel">NEXT</span>
         <div class="next-box" id="nextPreview"></div>
       </div>
 
@@ -959,6 +1496,8 @@
     </div>
   </div>
 
+
+
   <!-- 盤面 -->
   <div class="board-wrap">
 
@@ -967,6 +1506,8 @@
       <div class="dead-line"></div>
 
       <div id="board"></div>
+
+      <div id="pieceLayer" class="piece-layer"></div>
 
       <div id="fadeBadge" class="fade-badge">
         せり上がり！
@@ -989,6 +1530,9 @@
 
     </div>
   </div>
+
+  <!-- 演出用レイヤー（消滅エフェクト・得点の光の粒） -->
+  <div id="fxLayer" class="fx-layer"></div>
 
   <!-- 操作ボタン -->
   <div class="pad-row">
@@ -1013,6 +1557,88 @@
 </div>
 
 <script>
+
+/* =========================================================
+   多言語対応 Ver.1.0
+   日本語 → English → 简体中文
+========================================================= */
+
+const LANGUAGES = ['ja','en','zh'];
+let currentLanguage = localStorage.getItem('pittankoro-language') || 'ja';
+if(!LANGUAGES.includes(currentLanguage)) currentLanguage = 'ja';
+
+const I18N = {
+  ja:{
+    pageTitle:'ピッタンコロ | 落ちものサイコロパズル',
+    subtitle:'ピッタンころりん！ 落ちものサイコロパズル',
+    easy:'かんたんモード', endless:'エンドレスモード', genkai:'げんかいとっぱモード',
+    rules:'遊び方', controls:'操作説明', languageLabel:'言語', language:'日本語',
+    retry:'リトライ', title:'タイトルへ', close:'閉じる', back:'戻る',
+    again:'もう一度', score:'SCORE', next:'NEXT', rise:'せり上がり！',
+    incoming:'いっきにくるぞ！！', gameOver:'GAME OVER', clear:'CLEAR!',
+    mobile:'スマホ', pc:'PC',
+    rulePages:[
+      ['1. ダイスを消そう！','ダイスを<span class="hl">ピタッ</span>と合わせて消しちゃおう！<ul><li><span class="hl">同じ目</span>のダイスを合わせると、ダイスが消えてスコア獲得！</li><li><span class="hl">違う目</span>だと、引かれた数字でそのまま盤面に残るよ。</li></ul>'],
+      ['2. ダイスの色を合わせよう！','ダイスの色に注目！<ul><li><span class="badge-white">白いダイス</span>は、白いダイスとしか反応しないよ。</li><li><span class="badge-red">赤いダイス</span>は、赤いダイスとしか反応しないよ。</li><li><span class="badge-green">緑のダイス</span>は、緑のダイスとしか反応しないよ。（げんかいとっぱモード限定）</li></ul>'],
+      ['3. 連鎖で高得点！','高得点は<span class="hl">連鎖</span>が鍵！<ul><li>盤面は一定ターンごとに、ダイスが下から<span class="hl">せりあがって</span>くるよ。</li><li>ダイスを消すと、上に乗ったダイスが落ちて<span class="hl">連鎖チャンス</span>！</li></ul>効率よく消して高得点を目指そう！']
+    ],
+    controlsMobile:[['← / → ボタン','ダイスを左右に動かします。'],['↻ ボタン','ダイスを回転させます。'],['盤面タップ','ダイスを一気に一番下まで落とします（ハードドロップ）。']],
+    controlsPC:[['← / → または A / D','ダイスを左右に動かします。'],['↑ または W','ダイスを回転させます。'],['↓ / Space / S / 盤面クリック','ダイスを一気に一番下まで落とします（ハードドロップ）。']]
+  },
+  en:{
+    pageTitle:'ピッタンコロ | Falling Dice Puzzle', subtitle:'A falling dice puzzle!',
+    easy:'Easy Mode', endless:'Endless Mode', genkai:'Limit Break Mode', rules:'How to Play', controls:'Controls', languageLabel:'Language', language:'English',
+    retry:'Retry', title:'Back to Title', close:'Close', back:'Back', again:'Play Again', score:'SCORE', next:'NEXT', rise:'RISE!',
+    incoming:'BIG WAVE!', gameOver:'GAME OVER', clear:'CLEAR!', mobile:'Mobile', pc:'PC',
+    rulePages:[
+      ['1. Clear the Dice!','Match dice <span class="hl">perfectly</span> to clear them!<ul><li>Match dice with the <span class="hl">same number</span> to clear them and score points!</li><li>With <span class="hl">different numbers</span>, the difference remains on the board.</li></ul>'],
+      ['2. Match the Colors!','Watch the dice colors!<ul><li><span class="badge-white">White dice</span> only react to white dice.</li><li><span class="badge-red">Red dice</span> only react to red dice.</li><li><span class="badge-green">Green dice</span> only react to green dice. (Limit Break Mode only)</li></ul>'],
+      ['3. Chain for a High Score!','<span class="hl">Chains</span> are the key to a high score!<ul><li>Every few turns, dice <span class="hl">rise</span> from the bottom of the board.</li><li>When dice are cleared, dice above them fall for a <span class="hl">chain chance</span>!</li></ul>Clear efficiently and aim for a high score!']
+    ],
+    controlsMobile:[['← / → Buttons','Move the dice left or right.'],['↻ Button','Rotate the dice.'],['Tap the Board','Drop the dice straight to the bottom (hard drop).']],
+    controlsPC:[['← / → or A / D','Move the dice left or right.'],['↑ or W','Rotate the dice.'],['↓ / Space / S / Board Click','Drop the dice straight to the bottom (hard drop).']]
+  },
+  zh:{
+    pageTitle:'ピッタンコロ | 掉落骰子益智游戏', subtitle:'轻松有趣的掉落骰子益智游戏！',
+    easy:'简单模式', endless:'无尽模式', genkai:'极限突破模式', rules:'游戏玩法', controls:'操作说明', languageLabel:'语言', language:'简体中文',
+    retry:'重试', title:'返回标题', close:'关闭', back:'返回', again:'再来一次', score:'分数', next:'下一个', rise:'上升！',
+    incoming:'大波来袭！', gameOver:'游戏结束', clear:'通关！', mobile:'手机', pc:'PC',
+    rulePages:[
+      ['1. 消除骰子！','把骰子<span class="hl">精准</span>地配对并消除吧！<ul><li>配对<span class="hl">相同点数</span>的骰子，即可消除并获得分数！</li><li>如果是<span class="hl">不同点数</span>，相减后的数字会留在棋盘上。</li></ul>'],
+      ['2. 匹配骰子颜色！','注意骰子的颜色！<ul><li><span class="badge-white">白色骰子</span>只会与白色骰子产生反应。</li><li><span class="badge-red">红色骰子</span>只会与红色骰子产生反应。</li><li><span class="badge-green">绿色骰子</span>只会与绿色骰子产生反应。（仅限极限突破模式）</li></ul>'],
+      ['3. 连锁获得高分！','获得高分的关键是<span class="hl">连锁</span>！<ul><li>每隔一定回合，骰子会从底部<span class="hl">上升</span>。</li><li>消除骰子后，上面的骰子会下落，制造<span class="hl">连锁机会</span>！</li></ul>高效消除，挑战高分吧！']
+    ],
+    controlsMobile:[['← / → 按钮','左右移动骰子。'],['↻ 按钮','旋转骰子。'],['点击棋盘','让骰子直接落到底部（快速下落）。']],
+    controlsPC:[['← / → 或 A / D','左右移动骰子。'],['↑ 或 W','旋转骰子。'],['↓ / Space / S / 点击棋盘','让骰子直接落到底部（快速下落）。']]
+  }
+};
+
+function t(key){ return I18N[currentLanguage][key] ?? key; }
+
+function applyLanguage(){
+  const x=I18N[currentLanguage];
+  document.documentElement.lang = currentLanguage==='ja'?'ja':currentLanguage==='en'?'en':'zh-CN';
+  document.title=x.pageTitle;
+  const set=(id,val)=>{const el=document.getElementById(id); if(el) el.innerHTML=val;};
+  set('subtitleText',x.subtitle);
+  set('btnStartEasy',x.easy); set('btnStartEndless',x.endless); set('btnStartBreak',x.genkai);
+  set('btnTitleRules',x.rules); set('btnTitleControls',x.controls); set('languageLabel',x.languageLabel); set('btnLanguage',x.language);
+  set('btnRulesMenu',x.rules); set('btnControlsMenu',x.controls); set('btnRetryMenu',x.retry); set('btnTitleMenu',x.title); set('btnCloseMenu',x.close);
+  set('rulesModalTitle',x.rules); set('controlsModalTitle',x.controls); set('btnCloseRules',x.back); set('btnCloseControls',x.back);
+  set('scoreLabel',x.score); set('nextLabel',x.next); set('tabMobile',x.mobile); set('tabPC',x.pc);
+  set('restartBtn',x.again); set('btnTitleFromGameOver',x.title);
+  const pages=x.rulePages;
+  pages.forEach((pg,i)=>{const title=document.querySelector(`#rulePage${i+1} .rule-page-title`); const body=document.querySelector(`#rulePage${i+1} .rule-page-body`); if(title) title.innerHTML=pg[0]; if(body) body.innerHTML=pg[1];});
+  const renderGuide=(id,items)=>{const el=document.getElementById(id); if(!el)return; el.innerHTML=items.map(a=>`<div class="guide-item"><span class="guide-label">${a[0]}</span><span class="guide-desc">${a[1]}</span></div>`).join('');};
+  renderGuide('contentMobile',x.controlsMobile); renderGuide('contentPC',x.controlsPC);
+  localStorage.setItem('pittankoro-language',currentLanguage);
+}
+
+function cycleLanguage(){
+  const i=LANGUAGES.indexOf(currentLanguage);
+  currentLanguage=LANGUAGES[(i+1)%LANGUAGES.length];
+  applyLanguage();
+}
 
 /* =========================================================
    UI スケール
@@ -1070,6 +1696,36 @@ const bgm = document.getElementById('bgm');
 const btnAudio = document.getElementById('btnAudio');
 
 let isMuted = false;
+let titleInteractionStarted = false;
+
+function startFromTitleInteraction(){
+
+  if(titleInteractionStarted) return;
+  titleInteractionStarted = true;
+
+  // キー入力・タップというユーザー操作の中でBGMを開始します。
+  if(bgm && !isMuted){
+    bgm.play().catch(
+      e => console.log("Audio play blocked:", e)
+    );
+  }
+
+  // タイトル画面はそのまま。隠していたメニューボタンだけ表示します。
+  const titleScreen = document.getElementById('titleScreen');
+  if(titleScreen){
+    titleScreen.classList.remove('title-waiting');
+  }
+
+  window.removeEventListener('keydown', startFromTitleInteraction);
+  window.removeEventListener('pointerdown', startFromTitleInteraction);
+}
+
+// 起動直後の最初のキー入力・タップをBGM再生のユーザー操作として利用します。
+window.addEventListener('keydown', startFromTitleInteraction, { once: false });
+window.addEventListener('pointerdown', startFromTitleInteraction, { once: false });
+
+// タイトル画面は最初から表示し、メニューボタンだけを隠します。
+document.getElementById('titleScreen').classList.add('title-waiting');
 
 function playBGM(){
 
@@ -1342,6 +1998,574 @@ let gameMode = 'endless';
 
 let previousScreen = 'titleScreen';
 let currentRulePage = 1;
+
+
+/* =========================================================
+   操作中ピースの見た目（横移動の補間）
+   ・当たり判定は current（マス単位）のまま一切変えない
+   ・補間するのは左右移動だけ（横位置 cx を目標へ追いつかせる）
+   ・縦位置と向きは current から即座に決める（落下・回転は元のまま）
+   ・cx はペアの中心の列（単位：マス）
+========================================================= */
+
+const MOVE_ANIM_MS = 45;
+const MOVE_EASE_POWER = 5;   /* 大きいほど出だしが速く、すぐ止まる（3=前回までの動き） */
+const BOARD_GAP_PX = 2;
+
+const pieceVisX = { from:0, to:0, t:0, dur:0 };
+
+let pieceDiceOwner = null;
+let pieceAnimLastTs = null;
+
+
+/* ペアの中心の列（横置きなら2列の真ん中） */
+function pieceCenterX(p){
+
+  const s = p.state % 4;
+
+  return (s===1 || s===3)
+    ? p.col + 0.5
+    : p.col;
+}
+
+
+/* A・B それぞれのマス（pieceCells と同じ配置） */
+function piecePositionsAB(p){
+
+  const s = p.state % 4;
+  const r = p.row;
+  const c = p.col;
+
+  if(s===0) return { a:{ r, c }, b:{ r:r+1, c } };
+  if(s===1) return { a:{ r, c }, b:{ r, c:c+1 } };
+  if(s===2) return { a:{ r:r+1, c }, b:{ r, c } };
+
+  return { a:{ r, c:c+1 }, b:{ r, c } };
+}
+
+
+function pieceVisXValue(){
+
+  const ch = pieceVisX;
+
+  if(ch.dur <= 0 || ch.t >= ch.dur){
+    return ch.to;
+  }
+
+  const k = ch.t / ch.dur;
+  const e = 1 - Math.pow(1 - k, MOVE_EASE_POWER);
+
+  return ch.from + (ch.to - ch.from) * e;
+}
+
+
+/* 出現・回転：補間せず即座に合わせる */
+function pieceVisSnap(){
+
+  if(!current) return;
+
+  const x = pieceCenterX(current);
+
+  pieceVisX.from = x;
+  pieceVisX.to = x;
+  pieceVisX.t = 0;
+  pieceVisX.dur = 0;
+}
+
+
+/* 左右移動：今の見た目の位置から新しい列へ補間 */
+function pieceVisMove(){
+
+  pieceVisX.from = pieceVisXValue();
+  pieceVisX.to = pieceCenterX(current);
+  pieceVisX.t = 0;
+  pieceVisX.dur = MOVE_ANIM_MS;
+}
+
+
+function boardCellSize(){
+
+  const b = document.getElementById('board');
+
+  return {
+    w:(b.clientWidth - BOARD_GAP_PX * (COLS - 1)) / COLS,
+    h:(b.clientHeight - BOARD_GAP_PX * (TOTAL_ROWS - 1)) / TOTAL_ROWS
+  };
+}
+
+
+function placeDieEl(el, col, row, size){
+
+  if(!el) return;
+
+  el.style.width = size.w + 'px';
+  el.style.height = size.h + 'px';
+
+  /* サイコロの質感はマスの大きさ(--s)を基準に描く */
+  el.style.setProperty('--s', size.w + 'px');
+  el.style.transform =
+    'translate(' +
+    (col * (size.w + BOARD_GAP_PX)) + 'px,' +
+    (row * (size.h + BOARD_GAP_PX)) + 'px)';
+}
+
+
+function drawPieceLayer(){
+
+  const layer = document.getElementById('pieceLayer');
+
+  if(!layer || !board) return;
+
+  if(current !== pieceDiceOwner){
+
+    layer
+      .querySelectorAll('.piece-die')
+      .forEach(e => e.remove());
+
+    pieceDiceOwner = current;
+
+    if(current){
+
+      layer.insertAdjacentHTML(
+        'beforeend',
+        dieHTML(current.A, current.colorA, 'piece-die piece-a') +
+        dieHTML(current.B, current.colorB, 'piece-die piece-b')
+      );
+    }
+  }
+
+  if(!current) return;
+
+  const size = boardCellSize();
+
+  /* 横方向のずれ（補間中の見た目 − 実際の中心列）を2個に同じだけ加える */
+  const offsetX = pieceVisXValue() - pieceCenterX(current);
+
+  const pos = piecePositionsAB(current);
+
+  placeDieEl(layer.querySelector('.piece-a'), pos.a.c + offsetX, pos.a.r, size);
+  placeDieEl(layer.querySelector('.piece-b'), pos.b.c + offsetX, pos.b.r, size);
+}
+
+
+function pieceAnimFrame(ts){
+
+  const dt =
+    pieceAnimLastTs === null
+      ? 0
+      : Math.min(100, ts - pieceAnimLastTs);
+
+  pieceAnimLastTs = ts;
+
+  /* ポーズ中は見た目の時間も止める */
+  if(!isPaused && pieceVisX.t < pieceVisX.dur){
+    pieceVisX.t += dt;
+  }
+
+  drawPieceLayer();
+
+  requestAnimationFrame(pieceAnimFrame);
+}
+
+
+/* =========================================================
+   テンポ（落下スピードに合わせて反応・演出も速くする）
+   倍率 = 今の落下間隔 ÷ そのモードの最初の落下間隔
+   ただし TEMPO_MIN_SCALE（0.5 = 2倍速）より速くはしない
+========================================================= */
+
+const TEMPO_MIN_SCALE = 0.5;
+
+let currentDropInterval = 1600;   /* resetDropTimer で更新 */
+
+function tempoScale(){
+
+  return Math.max(
+    TEMPO_MIN_SCALE,
+    Math.min(1, currentDropInterval / DROP_INTERVAL_MS)
+  );
+}
+
+/* 待ち時間(ms)をテンポに合わせて縮める */
+function tempo(ms){
+
+  return ms * tempoScale();
+}
+
+/* 要素に付いているCSSアニメーションをテンポに合わせて速くする */
+function applyTempoToAnimations(el){
+
+  const rate = 1 / tempoScale();
+
+  el
+    .getAnimations({ subtree:true })
+    .forEach(a => { a.playbackRate = rate; });
+}
+
+/* 演出用の el.animate()：テンポに合わせて再生速度を上げる */
+function fxAnimate(el, keyframes, options){
+
+  const anim = el.animate(keyframes, options);
+
+  anim.playbackRate = 1 / tempoScale();
+
+  return anim;
+}
+
+
+/* =========================================================
+   演出：消滅エフェクト・得点の光の粒
+   ・見た目だけの演出。ゲームの処理は待たない
+   ・座標は #appScaler 内の座標（スケール前の px）で扱う
+   ・得点表示は「実際の得点 − まだ飛んでいる粒の得点」を出す
+     （粒の最後の1個が吸い込まれる寸前に加算される）
+========================================================= */
+
+const FX_CLEAR_MS = 220;            /* 消滅時の光が消えるまで */
+const FX_RING_MS = 280;             /* 消滅時のリングが消えるまで */
+
+/* 光の色（淡い白） */
+const FX_LIGHT_GLOW = 'rgba(255,255,250,1)';
+const FX_LIGHT_RING = 'rgba(255,255,250,1)';
+
+/* 消滅時の丸（光・リング）：大きさはマスに対する倍率 */
+const FX_GLOW_OPACITY = 0.35;
+const FX_GLOW_SCALE_FROM = 0.5;
+const FX_GLOW_SCALE_TO = 0.9;
+const FX_RING_OPACITY = 0.35;
+const FX_RING_SCALE_FROM = 0.4;
+const FX_RING_SCALE_TO = 1.0;
+
+/* 得点時①：放射状に大きく広がり、時間をかけて淡く霧散する光（得点表示には向かわない） */
+const FX_MIST_COUNT = 10;           /* 粒の数（等間隔の放射状に並ぶ） */
+const FX_MIST_SIZE = 4;             /* 粒の直径(px) */
+const FX_MIST_OPACITY = 0.3;        /* 粒の明るさ（最大の不透明度） */
+const FX_MIST_DIST_MIN = 70;        /* 広がる距離(px) */
+const FX_MIST_DIST_MAX = 100;
+const FX_MIST_ANGLE_JITTER = 0.15;  /* 放射の角度のばらつき(ラジアン) */
+const FX_MIST_PEAK_MS = 120;        /* 一番明るくなるまで */
+const FX_MIST_MS = 1500;            /* 広がり始めてから消えきるまで */
+
+/* 得点時②：サイコロの中心から得点表示へ向かう光 */
+const FX_FLY_COUNT = 3;             /* 粒の数 */
+const FX_FLY_SIZE = 4;              /* 粒の直径(px) */
+const FX_FLY_OPACITY = 0.8;         /* 粒の明るさ */
+const FX_FLY_DELAY_MS = 570;        /* 消去から飛び始めるまで（前回までと同じタイミング） */
+const FX_FLY_APPEAR_MS = 150;       /* 飛び始める前に中心でふわっと現れる時間 */
+const FX_STAGGER_MS = 30;           /* 粒ごとの出発のずれ */
+const FX_FLY_MS = 450;              /* 得点表示まで飛ぶ時間 */
+const FX_SCORE_LEAD_MS = 40;        /* 最後の粒が届く何ms前に加算するか */
+
+let fxPending = { gen:-1, points:0 };
+
+
+/* まだ得点表示に届いていない得点（今のゲームの分だけ） */
+function fxPendingPoints(){
+
+  return fxPending.gen === gameGen
+    ? fxPending.points
+    : 0;
+}
+
+
+/* #appScaler 内の座標系での矩形 */
+function fxRectOf(el){
+
+  const scaler = document.getElementById('appScaler');
+  const sr = scaler.getBoundingClientRect();
+  const scale = sr.width / 360;
+  const r = el.getBoundingClientRect();
+
+  return {
+    x:(r.left - sr.left) / scale,
+    y:(r.top - sr.top) / scale,
+    w:r.width / scale,
+    h:r.height / scale
+  };
+}
+
+
+/* 盤面のマス (r,c) の矩形。消去の直前に呼ぶ（まだ描画が残っている状態） */
+function fxCellRect(r, c){
+
+  const cell =
+    document.getElementById('board').children[r * COLS + c];
+
+  return cell ? fxRectOf(cell) : null;
+}
+
+
+function fxMakeEl(cls, rect){
+
+  const el = document.createElement('div');
+
+  el.className = cls;
+  el.style.left = rect.x + 'px';
+  el.style.top = rect.y + 'px';
+  el.style.width = rect.w + 'px';
+  el.style.height = rect.h + 'px';
+
+  document.getElementById('fxLayer').appendChild(el);
+
+  return el;
+}
+
+
+/* 消滅エフェクト（控えめな丸い光＋細い丸いリング）
+   color は今は使っていない（ダイスの色で変えたくなったとき用に残す） */
+function fxClear(r, c, color){
+
+  const rect = fxCellRect(r, c);
+
+  if(!rect) return;
+
+  const glow = fxMakeEl('fx-glow', rect);
+
+  glow.style.background =
+    'radial-gradient(circle, ' + FX_LIGHT_GLOW + ' 0%, rgba(255,255,255,0) 70%)';
+
+  fxAnimate(
+    glow,
+    [
+      { opacity:FX_GLOW_OPACITY, transform:'scale(' + FX_GLOW_SCALE_FROM + ')' },
+      { opacity:0, transform:'scale(' + FX_GLOW_SCALE_TO + ')' }
+    ],
+    { duration:FX_CLEAR_MS, easing:'ease-out' }
+  ).onfinish = () => glow.remove();
+
+  const ring = fxMakeEl('fx-ring', rect);
+
+  ring.style.borderColor = FX_LIGHT_RING;
+
+  fxAnimate(
+    ring,
+    [
+      { opacity:FX_RING_OPACITY, transform:'scale(' + FX_RING_SCALE_FROM + ')' },
+      { opacity:0, transform:'scale(' + FX_RING_SCALE_TO + ')' }
+    ],
+    { duration:FX_RING_MS, easing:'ease-out' }
+  ).onfinish = () => ring.remove();
+}
+
+
+/* 得点時①：放射状に大きく広がり、時間をかけて淡く霧散する光
+   中心からまっすぐ外へ、減速しながら広がり続け、ゆっくり消える */
+function fxMist(sx, sy){
+
+  const half = FX_MIST_SIZE / 2;
+  const base = Math.random() * Math.PI * 2;
+
+  for(
+    let i=0;
+    i<FX_MIST_COUNT;
+    i++
+  ){
+
+    const p = fxMakeEl('fx-particle', {
+      x:sx - half,
+      y:sy - half,
+      w:FX_MIST_SIZE,
+      h:FX_MIST_SIZE
+    });
+
+    const ang =
+      base +
+      (i / FX_MIST_COUNT) * Math.PI * 2 +
+      (Math.random() - 0.5) * 2 * FX_MIST_ANGLE_JITTER;
+
+    const dist =
+      FX_MIST_DIST_MIN +
+      Math.random() * (FX_MIST_DIST_MAX - FX_MIST_DIST_MIN);
+
+    const ux = Math.cos(ang);
+    const uy = Math.sin(ang);
+
+    /* 位置は減速カーブ、明るさは早めに最大→長くフェードアウト */
+    const keyframes = [];
+    const STEPS = 10;
+
+    for(
+      let s=0;
+      s<=STEPS;
+      s++
+    ){
+
+      const u = s / STEPS;
+      const t = u * FX_MIST_MS;
+
+      const move = 1 - Math.pow(1 - u, 3);   /* 減速 */
+      const d = dist * move;
+
+      const opacity =
+        t <= FX_MIST_PEAK_MS
+          ? FX_MIST_OPACITY * (t / FX_MIST_PEAK_MS)
+          : FX_MIST_OPACITY *
+            Math.pow(1 - (t - FX_MIST_PEAK_MS) / (FX_MIST_MS - FX_MIST_PEAK_MS), 1.5);
+
+      keyframes.push({
+        transform:
+          'translate(' + (ux * d) + 'px,' + (uy * d) + 'px) ' +
+          'scale(' + (0.6 + 0.8 * u) + ')',
+        opacity,
+        offset:u
+      });
+    }
+
+    /* 最初の1段（一番明るくなる所）を FX_MIST_PEAK_MS に合わせるため、
+       明るさの山が刻みの間に埋もれないよう1コマ追加 */
+    const pu = FX_MIST_PEAK_MS / FX_MIST_MS;
+    const pd = dist * (1 - Math.pow(1 - pu, 3));
+
+    keyframes.push({
+      transform:
+        'translate(' + (ux * pd) + 'px,' + (uy * pd) + 'px) ' +
+        'scale(' + (0.6 + 0.8 * pu) + ')',
+      opacity:FX_MIST_OPACITY,
+      offset:pu
+    });
+
+    keyframes.sort((a, b) => a.offset - b.offset);
+
+    fxAnimate(
+      p,
+      keyframes,
+      { duration:FX_MIST_MS, easing:'linear', fill:'forwards' }
+    ).onfinish = () => p.remove();
+  }
+}
+
+
+/* 得点時②：サイコロの中心から得点表示へ向かう光
+   戻り値：最後の粒が届くまでの時間(ms) */
+function fxFlyToScore(sx, sy, tx, ty){
+
+  const half = FX_FLY_SIZE / 2;
+
+  let lastArrive = 0;
+
+  for(
+    let i=0;
+    i<FX_FLY_COUNT;
+    i++
+  ){
+
+    const p = fxMakeEl('fx-particle', {
+      x:sx - half,
+      y:sy - half,
+      w:FX_FLY_SIZE,
+      h:FX_FLY_SIZE
+    });
+
+    const flyStart = FX_FLY_DELAY_MS + i * FX_STAGGER_MS;
+    const appearStart = Math.max(0, flyStart - FX_FLY_APPEAR_MS);
+    const total = flyStart + FX_FLY_MS;
+
+    /* 中心からわずかにずらした出発点 */
+    const ox = (Math.random() - 0.5) * 6;
+    const oy = (Math.random() - 0.5) * 6;
+
+    /* 吸い込まれる軌道（横に少しふくらむ曲線） */
+    const ex = tx - sx;
+    const ey = ty - sy;
+    const cx = (ox + ex) / 2 + (Math.random() - 0.5) * 60;
+    const cy = (oy + ey) / 2 + 20;
+
+    const keyframes = [
+      { transform:'translate(' + ox + 'px,' + oy + 'px) scale(0.5)', opacity:0, offset:0 },
+      { transform:'translate(' + ox + 'px,' + oy + 'px) scale(0.5)', opacity:0, offset:appearStart / total, easing:'ease-out' },
+      { transform:'translate(' + ox + 'px,' + oy + 'px) scale(1)', opacity:FX_FLY_OPACITY, offset:flyStart / total }
+    ];
+
+    /* 2次ベジェ曲線を刻んで、加速しながら吸い込まれる */
+    const STEPS = 8;
+
+    for(
+      let s=1;
+      s<=STEPS;
+      s++
+    ){
+
+      const u = s / STEPS;
+      const k = u * u;   /* 加速 */
+
+      const x = (1-k)*(1-k)*ox + 2*(1-k)*k*cx + k*k*ex;
+      const y = (1-k)*(1-k)*oy + 2*(1-k)*k*cy + k*k*ey;
+
+      keyframes.push({
+        transform:'translate(' + x + 'px,' + y + 'px) scale(' + (1 - 0.5 * u) + ')',
+        opacity:s === STEPS ? 0 : FX_FLY_OPACITY,
+        offset:(flyStart + FX_FLY_MS * u) / total
+      });
+    }
+
+    fxAnimate(
+      p,
+      keyframes,
+      { duration:total, easing:'linear', fill:'forwards' }
+    ).onfinish = () => p.remove();
+
+    lastArrive = Math.max(lastArrive, total);
+  }
+
+  return lastArrive;
+}
+
+
+/* 得点の演出：霧散する光＋得点表示へ向かう光
+   得点表示は、向かう光の最後の1粒が届く寸前に加算する */
+function fxScore(r, c, points){
+
+  const gen = gameGen;
+
+  if(fxPending.gen !== gen){
+    fxPending = { gen, points:0 };
+  }
+
+  fxPending.points += points;
+
+  const rect = fxCellRect(r, c);
+  const scoreEl = document.getElementById('scoreVal');
+
+  const addScore = () => {
+
+    if(fxPending.gen !== gen) return;
+
+    fxPending.points -= points;
+
+    scoreEl.textContent = score - fxPendingPoints();
+
+    scoreEl.animate(
+      [
+        { transform:'scale(1)' },
+        { transform:'scale(1.3)' },
+        { transform:'scale(1)' }
+      ],
+      { duration:180, easing:'ease-out' }
+    );
+  };
+
+  if(!rect){
+    addScore();
+    return;
+  }
+
+  const sr = fxRectOf(scoreEl);
+
+  const sx = rect.x + rect.w / 2;
+  const sy = rect.y + rect.h / 2;
+  const tx = sr.x + sr.w / 2;
+  const ty = sr.y + sr.h / 2;
+
+  fxMist(sx, sy);
+
+  const lastArrive =
+    fxFlyToScore(sx, sy, tx, ty);
+
+  setTimeout(
+    addScore,
+    tempo(Math.max(0, lastArrive - FX_SCORE_LEAD_MS))
+  );
+}
 
 
 /* =========================================================
@@ -1974,6 +3198,9 @@ function resetDropTimer(){
         );
     }
 
+    /* 【追加】演出・反応のテンポ計算に使う */
+    currentDropInterval = interval;
+
     dropTimer =
       setInterval(
         tick,
@@ -2026,6 +3253,9 @@ function spawnNext(){
   current.row = 0;
   current.col = 2;
   current.state = 1;
+
+  /* 【追加】出現時は補間せず即座に表示 */
+  pieceVisSnap();
 
   next = makePiece();
 
@@ -2090,6 +3320,9 @@ function tryMove(dc){
 
     current.col += dc;
 
+    /* 【追加】左右移動の補間 */
+    pieceVisMove();
+
     render();
   }
 }
@@ -2120,6 +3353,9 @@ function tryRotate(){
 
     current.state = ns;
 
+    /* 【追加】回転は補間せず即座に表示 */
+    pieceVisSnap();
+
     render();
 
     return;
@@ -2137,6 +3373,9 @@ function tryRotate(){
     current.col -= 1;
     current.state = ns;
 
+    /* 【追加】回転は補間せず即座に表示 */
+    pieceVisSnap();
+
     render();
 
     return;
@@ -2153,6 +3392,9 @@ function tryRotate(){
 
     current.col += 1;
     current.state = ns;
+
+    /* 【追加】回転は補間せず即座に表示 */
+    pieceVisSnap();
 
     render();
 
@@ -2285,12 +3527,12 @@ async function lock(){
 
   render();
 
-  await sleep(90);
+  await sleep(tempo(90));
 
+  /* 【修正箇所】別ゲームに切り替わった後の古い処理は resolving に触らない
+     （newGame / goToTitle 側で既に false にしている。ここで false にすると
+       新しいゲームの着地処理中フラグまで解除してしまう） */
   if(gen !== gameGen){
-
-    resolving = false;
-
     return;
   }
 
@@ -2323,9 +3565,6 @@ async function lock(){
       );
 
       if(gen !== gameGen){
-
-        resolving = false;
-
         return;
       }
     }
@@ -2376,7 +3615,7 @@ async function animateSplitFaller(
     render();
 
     await sleep(
-      CHAIN_FALL_STEP_MS
+      tempo(CHAIN_FALL_STEP_MS)
     );
 
     if(gameGen !== gen){
@@ -2397,61 +3636,29 @@ async function lockWithSplit(
 
   resolving = true;
 
-  if(
-    inBounds(
-      supported.r,
-      supported.c
-    )
-  ){
+  board[supported.r][supported.c] =
+    supported.val;
 
-    board[supported.r][supported.c] =
-      supported.val;
-
-    boardColor[supported.r][supported.c] =
-      supported.color;
-  }
+  boardColor[supported.r][supported.c] =
+    supported.color;
 
   current = null;
 
   render();
 
-  await sleep(90);
+  await sleep(tempo(90));
 
+  /* 【修正箇所】別ゲームに切り替わった後の古い処理は resolving に触らない
+     （newGame / goToTitle 側で既に false にしている。ここで false にすると
+       新しいゲームの着地処理中フラグまで解除してしまう） */
   if(gen !== gameGen){
-
-    resolving = false;
-
     return;
   }
 
-  if(
-    inBounds(
-      supported.r,
-      supported.c
-    )
-  ){
-
-    /* 【修正箇所】分離着地時、自分で置いたもう片方のダイスとは反応しない */
-    await performAction(
-      supported.r,
-      supported.c,
-      supported.val,
-      supported.color,
-      supported.dirs,
-      0,
-      [ { r: faller.r, c: faller.c } ]
-    );
-
-    if(gen !== gameGen){
-
-      resolving = false;
-
-      return;
-    }
-  }
-
+  /* 【修正箇所】判定より先に、落ちる側を落ちきるところまで落とす
+     （この時点ではまだどちらのダイスも反応させない） */
   let fr = faller.r;
-  let fc = faller.c;
+  const fc = faller.c;
 
   while(
     fr+1 < TOTAL_ROWS &&
@@ -2461,71 +3668,59 @@ async function lockWithSplit(
     fr++;
   }
 
-  if(gen !== gameGen){
+  if(fr > faller.r){
 
-    resolving = false;
+    const completed =
+      await animateSplitFaller(
+        faller,
+        fr
+      );
 
-    return;
-  }
-
-  if(
-    inBounds(fr,fc)
-  ){
-
-    const startR = faller.r;
-
-    if(fr > startR){
-
-      const completed =
-        await animateSplitFaller(
-          faller,
-          fr
-        );
-
-      if(!completed){
-
-        resolving = false;
-
-        return;
-      }
-
-    }else{
-
-      board[fr][fc] =
-        faller.val;
-
-      boardColor[fr][fc] =
-        faller.color;
-
-      render();
-
-      await sleep(90);
-
-      if(gen !== gameGen){
-
-        resolving = false;
-
-        return;
-      }
-    }
-
-    /* 【修正箇所】分離着地時、自分で置いたもう片方のダイスとは反応しない */
-    await performAction(
-      fr,
-      fc,
-      faller.val,
-      faller.color,
-      FALL_DIRS,
-      0,
-      [ { r: supported.r, c: supported.c } ]
-    );
-
-    if(gen !== gameGen){
-
-      resolving = false;
-
+    if(!completed){
       return;
     }
+
+  }else{
+
+    board[fr][fc] =
+      faller.val;
+
+    boardColor[fr][fc] =
+      faller.color;
+
+    render();
+
+    await sleep(tempo(90));
+
+    if(gen !== gameGen){
+      return;
+    }
+  }
+
+  /* 【修正箇所】2個とも着地した瞬間の盤面でまとめて判定する
+     配列の順番がそのまま優先順（上に乗った側 → 横から落ちてきた側） */
+  await resolvePlacement([
+
+    {
+      r:supported.r,
+      c:supported.c,
+      val:supported.val,
+      color:supported.color,
+      dirs:supported.dirs
+    },
+
+    {
+      r:fr,
+      c:fc,
+      val:faller.val,
+      color:faller.color,
+      dirs:FALL_DIRS
+    }
+
+  ]);
+
+  if(gen !== gameGen){
+    return;
   }
 
   await afterTurnResolved();
@@ -2536,14 +3731,47 @@ async function lockWithSplit(
    ターン終了
 ========================================================= */
 
+/* =========================================================
+   エフェクトの終了待ち（せり上がりの前に使う）
+   盤面の上で起きているもの（消滅の丸、式、連鎖ポイント）が消えるまで待つ。
+   霧散する光・得点へ向かう光は待たない（テンポ優先）
+   （念のため RISE_WAIT_MAX_MS で打ち切る）
+========================================================= */
+
+const RISE_WAIT_MAX_MS = 1500;
+
+function effectsActive(){
+
+  const fx =
+    document.getElementById('fxLayer');
+
+  const frame =
+    document.getElementById('boardFrame');
+
+  return (
+    (fx && fx.querySelector('.fx-glow, .fx-ring')) ||
+    (frame && frame.querySelector('.score-popup, .calc-popup'))
+  );
+}
+
+async function waitEffectsDone(){
+
+  const start = performance.now();
+
+  while(
+    effectsActive() &&
+    performance.now() - start < tempo(RISE_WAIT_MAX_MS)
+  ){
+    await sleep(50);
+  }
+}
+
+
 async function afterTurnResolved(){
 
   const gen = gameGen;
 
   if(gen !== gameGen){
-
-    resolving = false;
-
     return;
   }
 
@@ -2574,9 +3802,7 @@ async function afterTurnResolved(){
     nextRiseIsDouble
   ){
 
-    triggerFadeBadge(
-      "いっきにくるぞ！！"
-    );
+    triggerFadeBadge(t('incoming'));
 
     showWarningStripe();
   }
@@ -2593,9 +3819,14 @@ async function afterTurnResolved(){
 
     riseEventCount++;
 
-    triggerFadeBadge(
-      "せり上がり！"
-    );
+    /* 【追加】消滅・得点・式などのエフェクトが消えきるまで待ってからせり上げる */
+    await waitEffectsDone();
+
+    if(gen !== gameGen){
+      return;
+    }
+
+    triggerFadeBadge(t('rise'));
 
     clearWarningStripe();
 
@@ -2604,11 +3835,12 @@ async function afterTurnResolved(){
     );
   }
 
-  resolving = false;
-
+  /* 【修正箇所】世代チェックを先に行い、古い処理が resolving を解除しないようにする */
   if(gen !== gameGen){
     return;
   }
+
+  resolving = false;
 
   spawnNext();
 }
@@ -2629,6 +3861,159 @@ async function performAction(
 ){
 
   const gen = gameGen;
+
+  /* 【修正箇所】接触相手の収集は collectTargets に共通化 */
+  const targets =
+    collectTargets(
+      r,
+      c,
+      color,
+      dirs,
+      exclude
+    );
+
+  const contacted =
+    targets.length > 0;
+
+  const affectedCols =
+    new Set();
+
+  /* 相手を1つでも消したか（消滅エフェクトを出すかどうか） */
+  let clearedAny = false;
+
+
+  /* -------------------------------------------------------
+     接触処理
+  ------------------------------------------------------- */
+
+  for(
+    const o of targets
+  ){
+
+    const diff =
+      board[o.nr][o.nc] - value;
+
+    if(diff===0){
+
+      /* 【追加】消えるときも式を表示（例：3−3）金色 */
+      showCalcPopup(
+        r,
+        c,
+        o.nr,
+        o.nc,
+        board[o.nr][o.nc],
+        value,
+        true
+      );
+
+      /* 【追加】消滅エフェクト（消す前の色で） */
+      fxClear(
+        o.nr,
+        o.nc,
+        boardColor[o.nr][o.nc]
+      );
+
+      board[o.nr][o.nc] = 0;
+
+      /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
+      boardColor[o.nr][o.nc] = 'W';
+
+      score += BASE_MATCH_SCORE;
+
+      if(chainLevel > 0){
+
+        score += CHAIN_BONUS_SCORE;
+
+        showChainScorePopup(
+          o.nr,
+          o.nc,
+          CHAIN_BONUS_SCORE
+        );
+      }
+
+      /* 【追加】得点の光の粒（得点表示は粒が届く寸前に加算） */
+      fxScore(
+        o.nr,
+        o.nc,
+        BASE_MATCH_SCORE +
+        (chainLevel > 0 ? CHAIN_BONUS_SCORE : 0)
+      );
+
+      clearedAny = true;
+
+      affectedCols.add(
+        o.nc
+      );
+
+    }else{
+
+      /* 【追加】引き算の式を2つのダイスの真ん中に表示（赤は赤色） */
+      showCalcPopup(
+        r,
+        c,
+        o.nr,
+        o.nc,
+        board[o.nr][o.nc],
+        value,
+        false,
+        color
+      );
+
+      board[o.nr][o.nc] =
+        Math.abs(diff);
+    }
+  }
+
+
+  if(contacted){
+
+    /* 【修正箇所】作用して消える側のエフェクトは、相手を消したときだけ
+       （引き算で相手が残るだけのときは無演出） */
+    if(clearedAny){
+      fxClear(
+        r,
+        c,
+        color
+      );
+    }
+
+    board[r][c] = 0;
+
+    /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
+    boardColor[r][c] = 'W';
+
+    affectedCols.add(c);
+  }
+
+
+  render();
+
+  await sleep(tempo(90));
+
+  if(gen !== gameGen){
+    return;
+  }
+
+  /* 【修正箇所】重力落下と連鎖判定は resolveGravityAndChain に共通化 */
+  await resolveGravityAndChain(
+    affectedCols,
+    chainLevel + 1
+  );
+}
+
+
+/* =========================================================
+   接触相手の収集（共通）
+   dirs の順番で、同じ色・除外対象でない隣接ダイスを集める
+========================================================= */
+
+function collectTargets(
+  r,
+  c,
+  color,
+  dirs,
+  exclude = []
+){
 
   const targets = [];
 
@@ -2654,15 +4039,14 @@ async function performAction(
       continue;
     }
 
-    /* 【修正箇所】色判定：異色のダイスとは反応しない */
+    /* 色判定：異色のダイスとは反応しない */
     if(
       boardColor[nr][nc]!==color
     ){
       continue;
     }
 
-    /* 【修正箇所】同じピース由来のセル同士は反応しない
-       （プレイヤーが自ら置いたブロック同士は反応しない） */
+    /* 同じピース由来のセル同士は反応しない */
     if(
       exclude.some(
         e => e.r===nr && e.c===nc
@@ -2673,82 +4057,25 @@ async function performAction(
 
     targets.push({
       nr,
-      nc,
-      diff:
-        board[nr][nc] - value
+      nc
     });
   }
 
-  const contacted =
-    targets.length > 0;
-
-  const affectedCols =
-    new Set();
+  return targets;
+}
 
 
-  /* -------------------------------------------------------
-     接触処理
-  ------------------------------------------------------- */
+/* =========================================================
+   重力落下 → 落下したダイスの連鎖判定（共通）
+   fallenChainLevel：落下したダイスに渡す連鎖段数
+========================================================= */
 
-  for(
-    const o of targets
-  ){
+async function resolveGravityAndChain(
+  affectedCols,
+  fallenChainLevel
+){
 
-    if(o.diff===0){
-
-      board[o.nr][o.nc] = 0;
-
-      /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
-      boardColor[o.nr][o.nc] = 'W';
-
-      score += BASE_MATCH_SCORE;
-
-      if(chainLevel > 0){
-
-        score += CHAIN_BONUS_SCORE;
-
-        showChainScorePopup(
-          o.nr,
-          o.nc,
-          CHAIN_BONUS_SCORE
-        );
-      }
-
-      affectedCols.add(
-        o.nc
-      );
-
-    }else{
-
-      board[o.nr][o.nc] =
-        Math.abs(o.diff);
-    }
-  }
-
-
-  if(contacted){
-
-    board[r][c] = 0;
-
-    /* 【修正箇所】消去時に色情報もリセット（残留色による誤反応の防止） */
-    boardColor[r][c] = 'W';
-
-    affectedCols.add(c);
-  }
-
-
-  render();
-
-  await sleep(90);
-
-  if(gen !== gameGen){
-    return;
-  }
-
-
-  /* -------------------------------------------------------
-     重力落下アニメーション
-  ------------------------------------------------------- */
+  const gen = gameGen;
 
   const fallenDice =
     affectedCols.size > 0
@@ -2757,7 +4084,6 @@ async function performAction(
         )
       : [];
 
-
   if(fallenDice === null){
     return;
   }
@@ -2765,11 +4091,6 @@ async function performAction(
   if(gen !== gameGen){
     return;
   }
-
-
-  /* -------------------------------------------------------
-     落下したダイスを連鎖判定
-  ------------------------------------------------------- */
 
   for(
     const dieInfo of fallenDice
@@ -2789,7 +4110,7 @@ async function performAction(
         dieInfo.val,
         dieInfo.color,
         FALL_DIRS,
-        chainLevel + 1
+        fallenChainLevel
       );
 
       if(gen !== gameGen){
@@ -2797,6 +4118,326 @@ async function performAction(
       }
     }
   }
+}
+
+
+/* =========================================================
+   置いたダイスの一括判定
+   actors：着地した瞬間のダイス（配列の順番＝優先順）
+
+   ・全員の接触相手を、着地した瞬間の盤面で先に確定させる
+   ・同じ相手に複数のダイスが触れた場合
+       どれかが同じ目 → 消去
+       どれも違う目   → 優先順に差分を適用（途中で0なら消去）
+   ・接触相手がいたダイスは必ず消える
+   ・置いたダイス同士は反応しない
+========================================================= */
+
+/* 上と横が同じ相手に触れ、どちらも違う目だったときに
+   「上の反応 → 横の反応」の間に入れる待ち時間（途中の目を一瞬見せる）
+   連鎖で「消える → 1段落下 → 次の反応」と同じ間隔にそろえる
+   （反応後の待ち 90ms ＋ 1段落下 CHAIN_FALL_STEP_MS ＋ 着地後の待ち CHAIN_FALL_SETTLE_MS） */
+const PLACE_STEP_DELAY_MS =
+  90 + CHAIN_FALL_STEP_MS + CHAIN_FALL_SETTLE_MS;
+
+async function resolvePlacement(actors){
+
+  const gen = gameGen;
+
+  const hits = new Map();
+  const contactedActors = [];
+
+
+  /* -------------------------------------------------------
+     着地した瞬間の盤面で接触相手を確定
+  ------------------------------------------------------- */
+
+  actors.forEach((a, idx) => {
+
+    const others =
+      actors
+        .filter(o => o !== a)
+        .map(o => ({ r:o.r, c:o.c }));
+
+    const targets =
+      collectTargets(
+        a.r,
+        a.c,
+        a.color,
+        a.dirs,
+        others
+      );
+
+    if(targets.length > 0){
+      contactedActors.push({ a, idx });
+    }
+
+    for(
+      const t of targets
+    ){
+
+      const key =
+        t.nr + ',' + t.nc;
+
+      if(!hits.has(key)){
+
+        hits.set(key,{
+          r:t.nr,
+          c:t.nc,
+          val:board[t.nr][t.nc],
+          hitters:[],
+          cleared:false,
+          done:false
+        });
+      }
+
+      hits.get(key).hitters.push({
+        idx,
+        val:a.val,
+        r:a.r,
+        c:a.c
+      });
+    }
+  });
+
+
+  /* -------------------------------------------------------
+     段階表示するかどうか
+     複数のダイスが同じ相手に触れ、どれも同じ目でないときだけ
+     ダイスごとに段を分けて適用する（それ以外は1段でまとめて適用）
+  ------------------------------------------------------- */
+
+  const staged =
+    [...hits.values()].some(h =>
+      h.hitters.length >= 2 &&
+      !h.hitters.some(x => x.val === h.val)
+    );
+
+  const phaseCount =
+    staged ? actors.length : 1;
+
+
+  /* 最終的に消える相手に触れていたダイスだけ、消滅エフェクトを出す
+     （引き算で相手が残るだけのときは無演出） */
+  const actorClears =
+    actors.map(() => false);
+
+  for(
+    const h of hits.values()
+  ){
+
+    let finalCleared;
+
+    if(
+      h.hitters.some(x => x.val === h.val)
+    ){
+
+      finalCleared = true;
+
+    }else{
+
+      let v = h.val;
+
+      for(
+        const x of h.hitters
+      ){
+        v = Math.abs(v - x.val);
+      }
+
+      finalCleared = (v === 0);
+    }
+
+    if(finalCleared){
+
+      for(
+        const x of h.hitters
+      ){
+        actorClears[x.idx] = true;
+      }
+    }
+  }
+
+
+  /* -------------------------------------------------------
+     適用
+  ------------------------------------------------------- */
+
+  for(
+    let ph=0;
+    ph<phaseCount;
+    ph++
+  ){
+
+    /* この段までに作用したダイス（優先順） */
+    const upTo =
+      staged ? ph : actors.length - 1;
+
+    for(
+      const h of hits.values()
+    ){
+
+      if(h.done) continue;
+
+      const applied =
+        h.hitters.filter(x => x.idx <= upTo);
+
+      if(applied.length === 0) continue;
+
+      let result;
+
+      if(
+        h.hitters.some(x => x.val === h.val)
+      ){
+
+        /* どれかが同じ目 → 消去（途中の値は見せない） */
+        if(applied.length < h.hitters.length) continue;
+
+        result = 0;
+
+        /* 【追加】同じ目のダイスとの真ん中に式を表示（例：5−5） */
+        const same =
+          h.hitters.find(x => x.val === h.val);
+
+        showCalcPopup(
+          same.r,
+          same.c,
+          h.r,
+          h.c,
+          h.val,
+          same.val,
+          true
+        );
+
+      }else{
+
+        /* どれも違う目 → 優先順に差分を適用（途中で0なら消去） */
+        result = h.val;
+
+        let prev = h.val;
+
+        for(
+          const x of applied
+        ){
+          prev = result;
+          result = Math.abs(result - x.val);
+        }
+
+        /* 【追加】この段で作用したダイスとの真ん中に式を表示
+           （引き算で残るときも、0になって消えるときも） */
+        const last = applied[applied.length - 1];
+
+        showCalcPopup(
+          last.r,
+          last.c,
+          h.r,
+          h.c,
+          prev,
+          last.val,
+          result === 0,
+          boardColor[h.r][h.c]
+        );
+      }
+
+      if(result===0){
+
+        /* 【追加】消滅エフェクト・得点の光の粒 */
+        fxClear(
+          h.r,
+          h.c,
+          boardColor[h.r][h.c]
+        );
+
+        fxScore(
+          h.r,
+          h.c,
+          BASE_MATCH_SCORE
+        );
+
+        board[h.r][h.c] = 0;
+
+        boardColor[h.r][h.c] = 'W';
+
+        score += BASE_MATCH_SCORE;
+
+        h.cleared = true;
+        h.done = true;
+
+      }else{
+
+        board[h.r][h.c] =
+          result;
+
+        if(applied.length === h.hitters.length){
+          h.done = true;
+        }
+      }
+    }
+
+    /* この段で作用したダイスを消す */
+    for(
+      const { a, idx } of contactedActors
+    ){
+
+      if(!staged || idx === ph){
+
+        /* 【修正箇所】作用して消える側のエフェクトは、相手を消すときだけ */
+        if(actorClears[idx]){
+          fxClear(
+            a.r,
+            a.c,
+            a.color
+          );
+        }
+
+        board[a.r][a.c] = 0;
+
+        boardColor[a.r][a.c] = 'W';
+      }
+    }
+
+    render();
+
+    if(ph < phaseCount - 1){
+
+      await sleep(tempo(PLACE_STEP_DELAY_MS));
+
+      if(gen !== gameGen){
+        return;
+      }
+    }
+  }
+
+
+  /* 重力をかける列（段階表示の有無で連鎖の処理順が変わらないよう、
+     1段でまとめて適用したときと同じ順番で登録する） */
+  const affectedCols =
+    new Set();
+
+  for(
+    const h of hits.values()
+  ){
+
+    if(h.cleared){
+      affectedCols.add(h.c);
+    }
+  }
+
+  for(
+    const { a } of contactedActors
+  ){
+    affectedCols.add(a.c);
+  }
+
+  await sleep(tempo(90));
+
+  if(gen !== gameGen){
+    return;
+  }
+
+  await resolveGravityAndChain(
+    affectedCols,
+    1
+  );
 }
 
 
@@ -2972,7 +4613,7 @@ async function animateChainFall(
     render();
 
     await sleep(
-      CHAIN_FALL_STEP_MS
+      tempo(CHAIN_FALL_STEP_MS)
     );
 
     if(gameGen !== gen){
@@ -3013,7 +4654,7 @@ async function animateChainFall(
   if(maxDrop>0){
 
     await sleep(
-      CHAIN_FALL_SETTLE_MS
+      tempo(CHAIN_FALL_SETTLE_MS)
     );
   }
 
@@ -3236,7 +4877,7 @@ async function executeRise(rows){
 
     render();
 
-    await sleep(180);
+    await sleep(tempo(180));
 
     if(gen !== gameGen){
       return;
@@ -3321,7 +4962,7 @@ function endGame(){
 
   if(msg){
 
-    msg.textContent = 'GAME OVER';
+    msg.textContent = t('gameOver');
 
     msg.classList.remove('clear');
   }
@@ -3352,7 +4993,7 @@ function clearGame(){
 
   if(msg){
 
-    msg.textContent = 'CLEAR!';
+    msg.textContent = t('clear');
 
     msg.classList.add('clear');
   }
@@ -3393,9 +5034,11 @@ function updateSpeed(){
 
 function updateStats(){
 
+  /* 【修正箇所】まだ光の粒が飛んでいる分は表示に含めない
+     （粒が届く寸前に fxScore 側で加算される） */
   document
     .getElementById('scoreVal')
-    .textContent = score;
+    .textContent = score - fxPendingPoints();
 }
 
 
@@ -3429,9 +5072,87 @@ function showChainScorePopup(
 
   frame.appendChild(el);
 
-  setTimeout(
-    () => el.remove(),
-    500
+  /* 【追加】スピードに合わせて演出も速くする */
+  applyTempoToAnimations(el);
+
+  /* 【修正箇所】CSSアニメーションの終了で消す（時間はCSS側で調整） */
+  el.addEventListener(
+    'animationend',
+    () => el.remove()
+  );
+}
+
+
+/* =========================================================
+   引き算の式「大−小」を、2つのダイスのちょうど真ん中に表示
+   一文字ずつ左から順に遅らせて跳ね上げる（ポポポンッ）
+   (r1,c1)(r2,c2)：作用したダイスと相手のダイスのマス
+   cleared：相手が消えたとき true（金色で表示）
+   color：ダイスの色。赤の引き算は赤色で表示
+========================================================= */
+
+const CALC_CHAR_DELAY_MS = 45;   /* 一文字ごとの跳ね上がりのずれ */
+
+function showCalcPopup(
+  r1,
+  c1,
+  r2,
+  c2,
+  a,
+  b,
+  cleared = false,
+  color = 'W'
+){
+
+  const frame =
+    document.getElementById('boardFrame');
+
+  if(!frame) return;
+
+  const el =
+    document.createElement('div');
+
+  /* 消えたときは光沢のある金色、赤の引き算は赤色 */
+  el.className =
+    cleared
+      ? 'calc-popup clear'
+      : (color === 'R' ? 'calc-popup red' : 'calc-popup');
+
+  const text =
+    Math.max(a, b) + '−' + Math.min(a, b);
+
+  let lastChar = null;
+
+  [...text].forEach((ch, i) => {
+
+    const span =
+      document.createElement('span');
+
+    span.className = 'calc-char';
+    span.textContent = ch;
+    span.style.animationDelay =
+      (i * CALC_CHAR_DELAY_MS) + 'ms';
+
+    el.appendChild(span);
+
+    lastChar = span;
+  });
+
+  el.style.left =
+    (((c1 + c2) / 2 + 0.5) / COLS * 100) + '%';
+
+  el.style.top =
+    (((r1 + r2) / 2 + 0.5) / TOTAL_ROWS * 100) + '%';
+
+  frame.appendChild(el);
+
+  /* 【追加】スピードに合わせて演出も速くする */
+  applyTempoToAnimations(el);
+
+  /* 最後の文字のアニメーションが終わったら消す */
+  lastChar.addEventListener(
+    'animationend',
+    () => el.remove()
   );
 }
 
@@ -3499,61 +5220,8 @@ function dieHTML(
 
 function render(){
 
-  const g =
-    Array.from(
-      {length:TOTAL_ROWS},
-      () => Array(COLS).fill(0)
-    );
-
-  const gColor =
-    Array.from(
-      {length:TOTAL_ROWS},
-      () => Array(COLS).fill('W')
-    );
-
-
-  for(
-    let r=0;
-    r<TOTAL_ROWS;
-    r++
-  ){
-
-    for(
-      let c=0;
-      c<COLS;
-      c++
-    ){
-
-      g[r][c] =
-        board[r][c];
-
-      gColor[r][c] =
-        boardColor[r][c];
-    }
-  }
-
-
-  if(current){
-
-    for(
-      const cell of
-      pieceCells(current)
-    ){
-
-      if(
-        cell.r>=0 &&
-        cell.r<TOTAL_ROWS
-      ){
-
-        g[cell.r][cell.c] =
-          cell.val;
-
-        gColor[cell.r][cell.c] =
-          cell.color;
-      }
-    }
-  }
-
+  /* 【修正箇所】操作中のピースは盤面のマスには描かず、
+     重ね表示レイヤー（drawPieceLayer）で描く */
 
   let html = '';
 
@@ -3570,7 +5238,7 @@ function render(){
     ){
 
       const v =
-        g[r][c];
+        board[r][c];
 
       const cellCls =
         r < BUFFER_ROWS
@@ -3582,15 +5250,24 @@ function render(){
           ? '<div class="' + cellCls + '"></div>'
           : dieHTML(
               v,
-              gColor[r][c]
+              boardColor[r][c]
             );
     }
   }
 
 
-  document
-    .getElementById('board')
-    .innerHTML = html;
+  const boardEl =
+    document.getElementById('board');
+
+  boardEl.innerHTML = html;
+
+  /* 【追加】サイコロの質感はマスの大きさ(--s)を基準に描く */
+  boardEl.style.setProperty(
+    '--s',
+    boardCellSize().w + 'px'
+  );
+
+  drawPieceLayer();
 }
 
 
@@ -3678,6 +5355,9 @@ function showScreen(id){
     .getElementById(id)
     .classList
     .add('show');
+
+  /* 【追加】背景のサイコロ模様のアニメーションを共通の時計にそろえる */
+  syncDiceAnimations();
 }
 
 
@@ -3687,6 +5367,29 @@ function hideScreen(id){
     .getElementById(id)
     .classList
     .remove('show');
+
+  /* 【追加】背景のサイコロ模様のアニメーションを共通の時計にそろえる */
+  syncDiceAnimations();
+}
+
+
+/* =========================================================
+   背景のサイコロ模様のアニメーション同期
+   画面を表示し直すとCSSアニメーションは最初から再生されるため、
+   どの画面の模様も「ページを開いた時刻」を開始時刻にそろえる。
+   これで画面を行き来しても模様が同じ位置のまま動き続ける
+========================================================= */
+
+function syncDiceAnimations(){
+
+  document
+    .getAnimations()
+    .forEach(a => {
+
+      if(a.animationName === 'titleDiceFloat'){
+        a.startTime = 0;
+      }
+    });
 }
 
 
@@ -3770,6 +5473,11 @@ document
       newGame('genkai');
     }
   );
+
+
+document
+  .getElementById('btnLanguage')
+  .addEventListener('click', cycleLanguage);
 
 
 /* =========================================================
@@ -4167,6 +5875,26 @@ document
       hardDrop();
     }
   );
+
+applyLanguage();
+
+/* 【追加】ポーズメニュー・遊び方・操作説明にもタイトルと同じサイコロ模様を敷く
+   （HTMLを二重に書かずに複製） */
+['menuOverlay', 'rulesOverlay', 'controlsOverlay'].forEach(id => {
+
+  document
+    .getElementById(id)
+    .prepend(
+      document
+        .querySelector('.title-dice-bg')
+        .cloneNode(true)
+    );
+});
+
+requestAnimationFrame(pieceAnimFrame);
+
+/* 【追加】起動時にも模様のアニメーションを共通の時計にそろえる */
+syncDiceAnimations();
 
 </script>
 
