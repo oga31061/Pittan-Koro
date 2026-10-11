@@ -1700,6 +1700,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 const bgm = document.getElementById('bgm');
 const seRemain = document.getElementById('seRemain');
 const seClear = document.getElementById('seClear');
+// 消去成功時のSE（se2.ogg）の音量を60%に設定
+seClear.volume = 0.6;
 const btnAudio = document.getElementById('btnAudio');
 
 let isMuted = false;
@@ -1713,6 +1715,8 @@ function playSFX(source){
   // 1つの音声要素を連続で巻き戻すと再生中の音が途切れるため、
   // 元の要素を複製して連続消去・連鎖でも再生できるようにします。
   const player = source.cloneNode();
+  // cloneNode() では音量プロパティが引き継がれないため、元の音量を明示的にコピー
+  player.volume = source.volume;
   player.currentTime = 0;
   activeSfxPlayers.add(player);
 
