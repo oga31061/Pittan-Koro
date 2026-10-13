@@ -1,0 +1,28 @@
+Copyright (c) 2026 Ogawara. All rights reserved.
+
+This repository is published for viewing and for playing the game
+through the official distribution only.
+
+The source code, game design, and original graphics of this project
+are the property of Ogawara. Without prior written permission from
+the copyright holder, you may NOT:
+
+- copy, modify, or redistribute the source code or any part of it
+- reuse the graphics or other original assets
+- publish derivative works or games that are substantially similar
+  in code or assets
+- use any of the above for commercial purposes
+
+Forking on GitHub is permitted only to the extent required by
+GitHub's Terms of Service.
+
+Third-party and generated assets
+--------------------------------
+The following assets are NOT covered by the above and remain subject
+to their own terms:
+
+- Sound effects (se1.ogg, se2.ogg): by Kenney (https://kenney.nl),
+  licensed under CC0 1.0
+- Background music (bgm.mp3): generated with Gemini
+
+Contact: X (Twitter) @Oga31061 https://x.com/Oga31061
