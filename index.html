@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  ピッタンコロ (Pittankoro)
+  ピッタンコロ (Pittankoro) Ver.1.8
   Copyright (c) 2026 Ogawara. All rights reserved.
   Unauthorized copying, modification, redistribution, or reuse of this
   source code and its original assets is prohibited without prior
@@ -323,6 +323,32 @@
     border-radius: 50%;
     box-sizing: border-box;
   }
+
+  /* 作用しているダイスの光（重ねた板の透明度だけを動かす：軽い） */
+  .fx-glowbox {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 18%;
+    background: rgba(255,250,228,.14);
+    box-shadow: 0 0 6px 1px rgba(255,240,205,.5);
+    will-change: opacity;
+  }
+
+  .fx-glowbox.strong {
+    background: rgba(255,250,228,.3);
+    box-shadow: 0 0 12px 3px rgba(255,236,190,.9);
+  }
+
+  .fx-absorb {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 22%;
+    /* 暗い盤面でも、明るいダイスの上でも見えるように：明るい芯＋ぼやけた黒いふち */
+    background: radial-gradient(circle, rgba(255,236,180,.85) 0%, rgba(255,214,140,.55) 45%, rgba(40,25,10,.55) 100%);
+    box-shadow: 0 0 6px 2px rgba(0,0,0,.55);
+    filter: blur(1.5px);
+  }
+
 
   .fx-particle {
     border-radius: 50%;
@@ -1242,6 +1268,60 @@
     justify-content: flex-end;
   }
 
+  /* 【追加】操作の切替（W回転／Space回転） */
+  .modal-footer.key-footer {
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .key-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--cream);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .key-switch-track {
+    position: relative;
+    width: 46px;
+    height: 24px;
+    border-radius: 12px;
+    background: #0A0F15;
+    border: 1px solid var(--line);
+    transition: background .15s;
+    flex: none;
+  }
+
+  .key-switch-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #A9AEB6;
+    transition: transform .15s, background .15s;
+  }
+
+  /* どちらかが特別なわけではないので、左右どちらでも色は同じ（つまみの位置だけ変わる） */
+  .key-switch.on .key-switch-knob { transform: translateX(22px); }
+
+  .key-switch-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.25;
+  }
+
+  .key-switch-label { font-size: 11px; color: var(--cream-dim); }
+  .key-switch-keys { font-size: 13px; font-weight: 700; color: var(--cream-dim); }
+  .key-switch-keys .sel { color: var(--cream); }
+
   .btn-back {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -1318,7 +1398,7 @@
     <div class="language-label" id="languageLabel">言語</div>
     <button id="btnLanguage" class="big-btn language">日本語</button>
 
-    <div class="version-label" id="versionLabel">Ver.1.7 © 2026 Ogawara</div>
+    <div class="version-label" id="versionLabel">Ver.1.8 © 2026 Ogawara</div>
   </div>
 
     <div class="game-dice-bg" aria-hidden="true">
@@ -1519,7 +1599,14 @@
 
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer key-footer">
+        <button id="keySwitch" class="key-switch" role="switch" aria-checked="false" aria-label="W / Space" style="visibility:hidden">
+          <span class="key-switch-track"><span class="key-switch-knob"></span></span>
+          <span class="key-switch-text">
+            <span class="key-switch-label" id="keySwitchLabel">切替</span>
+            <span class="key-switch-keys"><span id="keyOptW">W</span> / <span id="keyOptSpace">Space</span></span>
+          </span>
+        </button>
         <button id="btnCloseControls" class="btn-back">戻る</button>
       </div>
 
@@ -1666,6 +1753,9 @@ function detectLanguage(){
 }
 
 let currentLanguage = storageGet('pittankoro-language') || detectLanguage();
+
+/* 【追加】操作の切替：false＝W回転（Spaceで落とす）／true＝Space回転（Wで落とす） */
+let spaceRotate = storageGet('pittankoro-space-rotate') === '1';
 if(!LANGUAGES.includes(currentLanguage)) currentLanguage = detectLanguage();
 
 const I18N = {
@@ -1684,6 +1774,8 @@ const I18N = {
       ['3. 連鎖で高得点！','高得点は<span class="hl">連鎖</span>が鍵！<ul><li>盤面は一定ターンごとに、ダイスが下から<span class="hl">せりあがって</span>くるよ。</li><li>ダイスを消すと、上に乗ったダイスが落ちて<span class="hl">連鎖チャンス</span>！</li></ul>効率よく消して高得点を目指そう！']
     ],
     controlsMobile:[['← / → ボタン','ダイスを左右に動かします。'],['↻ ボタン','ダイスを回転させます。'],['盤面タップ','ダイスを一気に一番下まで落とします（ハードドロップ）。']],
+    keySwitch:'切替',
+    controlsPCSpace:[['← / → または A / D','ダイスを左右に動かします。'],['↑ または Space','ダイスを回転させます。'],['↓ / W / S / 盤面クリック','ダイスを一気に一番下まで落とします（ハードドロップ）。']],
     controlsPC:[['← / → または A / D','ダイスを左右に動かします。'],['↑ または W','ダイスを回転させます。'],['↓ / Space / S / 盤面クリック','ダイスを一気に一番下まで落とします（ハードドロップ）。']]
   },
   en:{
@@ -1697,6 +1789,8 @@ const I18N = {
       ['3. Chain for a High Score!','<span class="hl">Chains</span> are the key to a high score!<ul><li>Every few turns, dice <span class="hl">rise</span> from the bottom of the board.</li><li>When dice are cleared, dice above them fall for a <span class="hl">chain chance</span>!</li></ul>Clear efficiently and aim for a high score!']
     ],
     controlsMobile:[['← / → Buttons','Move the dice left or right.'],['↻ Button','Rotate the dice.'],['Tap the Board','Drop the dice straight to the bottom (hard drop).']],
+    keySwitch:'Switch',
+    controlsPCSpace:[['← / → or A / D','Move the dice left or right.'],['↑ or Space','Rotate the dice.'],['↓ / W / S / Board Click','Drop the dice straight to the bottom (hard drop).']],
     controlsPC:[['← / → or A / D','Move the dice left or right.'],['↑ or W','Rotate the dice.'],['↓ / Space / S / Board Click','Drop the dice straight to the bottom (hard drop).']]
   },
   zh:{
@@ -1710,6 +1804,8 @@ const I18N = {
       ['3. 连锁获得高分！','获得高分的关键是<span class="hl">连锁</span>！<ul><li>每隔一定回合，骰子会从底部<span class="hl">上升</span>。</li><li>消除骰子后，上面的骰子会下落，制造<span class="hl">连锁机会</span>！</li></ul>高效消除，挑战高分吧！']
     ],
     controlsMobile:[['← / → 按钮','左右移动骰子。'],['↻ 按钮','旋转骰子。'],['点击棋盘','让骰子直接落到底部（快速下落）。']],
+    keySwitch:'切换',
+    controlsPCSpace:[['← / → 或 A / D','左右移动骰子。'],['↑ 或 Space','旋转骰子。'],['↓ / W / S / 点击棋盘','让骰子直接落到底部（快速下落）。']],
     controlsPC:[['← / → 或 A / D','左右移动骰子。'],['↑ 或 W','旋转骰子。'],['↓ / Space / S / 点击棋盘','让骰子直接落到底部（快速下落）。']]
   }
 };
@@ -1731,8 +1827,28 @@ function applyLanguage(){
   const pages=x.rulePages;
   pages.forEach((pg,i)=>{const title=document.querySelector(`#rulePage${i+1} .rule-page-title`); const body=document.querySelector(`#rulePage${i+1} .rule-page-body`); if(title) title.innerHTML=pg[0]; if(body) body.innerHTML=pg[1];});
   const renderGuide=(id,items)=>{const el=document.getElementById(id); if(!el)return; el.innerHTML=items.map(a=>`<div class="guide-item"><span class="guide-label">${a[0]}</span><span class="guide-desc">${a[1]}</span></div>`).join('');};
-  renderGuide('contentMobile',x.controlsMobile); renderGuide('contentPC',x.controlsPC);
+  renderGuide('contentMobile',x.controlsMobile); renderGuide('contentPC',spaceRotate?x.controlsPCSpace:x.controlsPC);
+  set('keySwitchLabel',x.keySwitch); updateKeySwitch();
   storageSet('pittankoro-language',currentLanguage);
+}
+
+/* 【追加】操作の切替：スイッチの見た目と説明文を合わせる */
+function updateKeySwitch(){
+  const sw = document.getElementById('keySwitch');
+  if(!sw) return;
+  sw.classList.toggle('on', spaceRotate);
+  sw.setAttribute('aria-checked', spaceRotate ? 'true' : 'false');
+  document.getElementById('keyOptW').classList.toggle('sel', !spaceRotate);
+  document.getElementById('keyOptSpace').classList.toggle('sel', spaceRotate);
+}
+
+function toggleKeySwitch(){
+  spaceRotate = !spaceRotate;
+  storageSet('pittankoro-space-rotate', spaceRotate ? '1' : '0');
+  const x = I18N[currentLanguage];
+  const el = document.getElementById('contentPC');
+  if(el) el.innerHTML = (spaceRotate ? x.controlsPCSpace : x.controlsPC).map(a => `<div class="guide-item"><span class="guide-label">${a[0]}</span><span class="guide-desc">${a[1]}</span></div>`).join('');
+  updateKeySwitch();
 }
 
 function cycleLanguage(){
@@ -2407,6 +2523,118 @@ function fxAnimate(el, keyframes, options){
 ========================================================= */
 
 const FX_CLEAR_MS = 220;            /* 消滅時の光が消えるまで */
+
+/* 【追加】くっついたときの演出（硬いダイスのまま）
+   ・作用している同士が、まぶしくない程度に光る
+   ・くっつけた側のダイスが、相手の方向へ0.4秒かけて吸い込まれる（最初ゆっくり → 速く）。相手が複数ならそれぞれの方向へ
+   ・その間、くっつけた側の元のダイスは半透明から、ほぼ見えなくなるまでフェードする
+   ・吸い込まれ終わってから結果を出す（一致なら相手も消える／引き算なら相手の目が変わる）
+   ・下が空いたら、上のダイスは一瞬空中で止まってから、ストンと落ちる */
+const FX_ABSORB_MS = 200;           /* 吸い込まれる時間（消えるときも引き算も同じ） */
+const FX_ABSORB_NEXT = .7;          /* 吸い込みがこの割合まで進んだら結果を出し、次の動きを始める（残像に食い込ませる） */
+const FX_FALL_MAX_MS = 120;         /* 落下にかかる時間の上限（何段落ちてもこれ以内。作用より長くならないように） */
+const FX_HOVER_MS = 30;             /* 下が空いてから落ち始めるまで（空中で止まる時間。ほとんど止まらない） */
+const FX_LAND_REACT_MS = 40;        /* 着地してから反応が始まるまで */
+const FX_AFTER_CLEAR_MS = 40;       /* 消えてから落ち始めるまで */
+
+function fxDieEl(r, c){
+  const el = document.getElementById('board').children[r * COLS + c];
+  return el && el.classList.contains('die') ? el : null;
+}
+
+/* 着地：硬いダイスなので何もしない（呼び出しは残している） */
+function fxLandSquash(r, c){}
+
+
+/* 下が空いたダイス：その場で止まるだけ（動きはつけない） */
+function fxWobble(r, c){}
+
+
+/* なめらかな落下（見た目だけ）
+   盤面はもう着地後の状態にしておき、着地先のダイスを隠して、複製を元の位置から加速しながら落とす。
+   それぞれ着地した瞬間に本物を表示して、潰れる */
+async function fxSmoothFall(items){
+  const layer = document.getElementById('fxLayer');
+  let longest = 0;
+  for(const it of items){
+    if(it.drop <= 0) continue;
+    const from = it.fromRect, to = fxCellRect(it.newR, it.c), el = fxDieEl(it.newR, it.c);
+    if(!from || !to || !el) continue;
+    const cl = el.cloneNode(true);
+    Object.assign(cl.style, { position:'absolute', left:from.x + 'px', top:from.y + 'px', width:from.w + 'px', height:from.h + 'px', margin:'0', pointerEvents:'none', willChange:'transform' });
+    cl.style.setProperty('--s', from.w + 'px');
+    layer.appendChild(cl);
+    el.getAnimations().forEach(an => an.cancel());
+    el.style.visibility = 'hidden';
+    const T = Math.min(FX_FALL_MAX_MS, 60 + 15 * (it.drop - 1)), dy = to.y - from.y;   /* 1段0.06秒、段が増えるほど少し長く、最大0.12秒 */
+    fxAnimate(cl, [
+      { transform:'translateY(0)' },
+      { transform:'translateY(' + dy + 'px)' }
+    ], { duration:T, easing:'cubic-bezier(.5,0,1,1)', fill:'forwards' });   /* ストンと落ちる */
+    setTimeout(() => {
+      cl.remove();
+      const live = fxDieEl(it.newR, it.c);
+      if(live){ live.getAnimations().forEach(an => an.cancel()); live.style.visibility = ''; fxLandSquash(it.newR, it.c); }   /* 伸びたまま残らないよう、前の動きを消してから潰す */
+    }, tempo(T));
+    longest = Math.max(longest, T);
+  }
+  if(longest > 0) await sleep(tempo(longest));
+}
+
+
+/* くっつけた側のダイス(actor)が、相手(targets)の方向へ吸い込まれる。終わるまで待つ
+   targets：[{r,c,clear}]（clear＝目が一致して消える相手）
+   ・くっつけた側のダイスの残像（半透明）が、くっつけた側の中心に小さく現れ、相手へ向かいながら大きくなり、相手と同じ大きさで重なる
+   ・消えるとき：0.4秒・強い光／引き算だけのとき：0.2秒・弱い光（あっさり） */
+async function fxAbsorb(actor, targets){
+  if(!targets.length) return;
+  const el = fxDieEl(actor.r, actor.c), ar = fxCellRect(actor.r, actor.c);
+  if(!el || !ar) return;
+  const layer = document.getElementById('fxLayer');
+  const anyClear = targets.some(t => t.clear);
+  const dur = FX_ABSORB_MS;
+  /* 作用している同士が光る（消えるときは強く、引き算だけのときは弱く）
+     【軽量化】ダイスに filter をかけず、上に重ねた「光の板」の透明度だけを動かす */
+  const glowTotal = dur + 180;
+  const glowAt = (rect, strong) => {
+    const g = fxMakeEl('fx-glowbox' + (strong ? ' strong' : ''), rect);
+    fxAnimate(g, [
+      { opacity:0 },
+      { opacity:1, offset:Math.min(.5, 120 / glowTotal), easing:'linear' },
+      { opacity:1, offset:dur * .85 / glowTotal },
+      { opacity:0 }
+    ], { duration:glowTotal, easing:'ease-out', fill:'forwards' }).onfinish = () => g.remove();
+  };
+  glowAt(ar, anyClear);
+  for(const t of targets){
+    const tr0 = fxCellRect(t.r, t.c);
+    if(tr0) glowAt(tr0, t.clear);
+  }
+  /* 元のダイスは、半透明からほぼ見えなくなるまでフェード */
+  fxAnimate(el, [{ opacity:1 }, { opacity:.5, offset:.12 }, { opacity:.06 }], { duration:dur, easing:'linear', fill:'forwards' });
+  /* 影：くっつけた側の中心に小さく現れ → 相手へ向かいながら大きくなり → 相手と同じ大きさで重なる（最初ゆっくり → 速く） */
+  const acx = ar.x + ar.w / 2, acy = ar.y + ar.h / 2;
+  for(const t of targets){
+    const tr = fxCellRect(t.r, t.c);
+    if(!tr) continue;
+    /* くっつけた側のダイスの残像（半透明の複製）を、相手の位置・大きさに合わせて置き、そこから逆算して動かす */
+    const sh = el.cloneNode(true);
+    Object.assign(sh.style, { position:'absolute', left:tr.x + 'px', top:tr.y + 'px', width:tr.w + 'px', height:tr.h + 'px', margin:'0', pointerEvents:'none', opacity:'0', willChange:'transform, opacity' });
+    sh.style.setProperty('--s', tr.w + 'px');
+    sh.getAnimations && sh.getAnimations().forEach(an => an.cancel());
+    layer.appendChild(sh);
+    const dx = acx - (tr.x + tr.w / 2), dy = acy - (tr.y + tr.h / 2);
+    fxAnimate(sh, [
+      { transform:'translate(' + dx + 'px,' + dy + 'px) scale(.3)', opacity:0 },
+      { transform:'translate(' + dx * .85 + 'px,' + dy * .85 + 'px) scale(.405)', opacity:.4, offset:.15 },
+      { transform:'translate(0,0) scale(1)', opacity:.3 }
+    ], { duration:dur, easing:'linear', fill:'forwards' }).onfinish = () => {   /* 一定の速さで吸い込まれる */
+      fxAnimate(sh, [{ opacity:.3 }, { opacity:0 }], { duration:140, fill:'forwards' }).onfinish = () => sh.remove();
+    };
+  }
+  await sleep(tempo(dur * FX_ABSORB_NEXT));
+}
+
 const FX_RING_MS = 280;             /* 消滅時のリングが消えるまで */
 
 /* 光の色（淡い白） */
@@ -3712,7 +3940,9 @@ async function lock(){
 
   render();
 
-  await sleep(tempo(90));
+  for(const cell of cells){ if(inBounds(cell.r, cell.c)) fxLandSquash(cell.r, cell.c); }
+
+  await sleep(tempo(FX_LAND_REACT_MS));   /* 上にポヨンで着地してから反応する */
 
   /* 【修正箇所】別ゲームに切り替わった後の古い処理は resolving に触らない
      （newGame / goToTitle 側で既に false にしている。ここで false にすると
@@ -3770,42 +4000,18 @@ async function animateSplitFaller(
 
   const gen = gameGen;
 
-  const startR = faller.r;
-  const fc = faller.c;
+  /* 【修正箇所】1マスずつ動かすのをやめ、着地先に置いてから、見た目だけなめらかに加速して落とす */
+  const fromRect = fxCellRect(faller.r, faller.c);
 
-  for(
-    let step=1;
-    step<=targetR-startR;
-    step++
-  ){
+  board[targetR][faller.c] = faller.val;
+  boardColor[targetR][faller.c] = faller.color;
 
-    if(gameGen !== gen){
-      return false;
-    }
+  render();
 
-    const r =
-      startR + step;
+  await fxSmoothFall([{ c:faller.c, newR:targetR, drop:targetR - faller.r, fromRect }]);
 
-    board[r][fc] =
-      faller.val;
-
-    boardColor[r][fc] =
-      faller.color;
-
-    if(step>1){
-      board[r-1][fc] = 0;
-      boardColor[r-1][fc] = 'W';
-    }
-
-    render();
-
-    await sleep(
-      tempo(CHAIN_FALL_STEP_MS)
-    );
-
-    if(gameGen !== gen){
-      return false;
-    }
+  if(gameGen !== gen){
+    return false;
   }
 
   return true;
@@ -3830,6 +4036,8 @@ async function lockWithSplit(
   current = null;
 
   render();
+
+  fxLandSquash(supported.r, supported.c);
 
   await sleep(tempo(90));
 
@@ -3865,6 +4073,12 @@ async function lockWithSplit(
       return;
     }
 
+    await sleep(tempo(FX_LAND_REACT_MS));   /* 上にポヨンで着地してから反応する */
+
+    if(gen !== gameGen){
+      return;
+    }
+
   }else{
 
     board[fr][fc] =
@@ -3875,7 +4089,9 @@ async function lockWithSplit(
 
     render();
 
-    await sleep(tempo(90));
+    fxLandSquash(fr, fc);
+
+    await sleep(tempo(FX_LAND_REACT_MS));   /* 上にポヨンで着地してから反応する */
 
     if(gen !== gameGen){
       return;
@@ -4024,6 +4240,16 @@ async function performAction(
   let clearedAny = false;
 
 
+
+
+  /* 【追加】くっつけた側が相手の方向へ吸い込まれてから、結果を出す */
+  if(contacted){
+    await fxAbsorb({ r, c }, targets.map(o => ({ r:o.nr, c:o.nc, clear:board[o.nr][o.nc] === value })));
+    if(gen !== gameGen){
+      return;
+    }
+  }
+
   /* -------------------------------------------------------
      接触処理
   ------------------------------------------------------- */
@@ -4136,7 +4362,7 @@ async function performAction(
 
   render();
 
-  await sleep(tempo(90));
+  await sleep(tempo(FX_AFTER_CLEAR_MS));
 
   if(gen !== gameGen){
     return;
@@ -4225,6 +4451,25 @@ async function resolveGravityAndChain(
 
   const gen = gameGen;
 
+  /* 【追加】落ちるダイスは、落ち始める前に一瞬空中で止まって震える */
+  if(affectedCols.size > 0){
+    const hover = [];
+    for(const c of affectedCols){
+      let gap = false;
+      for(let r = TOTAL_ROWS - 1; r >= 0; r--){
+        if(board[r][c] === 0) gap = true;
+        else if(gap) hover.push([r, c]);
+      }
+    }
+    if(hover.length){
+      hover.forEach(([r, c]) => fxWobble(r, c));
+      await sleep(tempo(FX_HOVER_MS));
+      if(gen !== gameGen){
+        return;
+      }
+    }
+  }
+
   const fallenDice =
     affectedCols.size > 0
       ? await animateChainFall(
@@ -4239,6 +4484,7 @@ async function resolveGravityAndChain(
   if(gen !== gameGen){
     return;
   }
+
 
   for(
     const dieInfo of fallenDice
@@ -4410,11 +4656,27 @@ async function resolvePlacement(actors){
      適用
   ------------------------------------------------------- */
 
+
   for(
     let ph=0;
     ph<phaseCount;
     ph++
   ){
+
+    /* 【追加】この段で作用するダイスが、それぞれの相手の方向へ吸い込まれてから結果を出す */
+    {
+      const acting = contactedActors.filter(({ idx }) => !staged || idx === ph);
+      const waits = acting.map(({ a, idx }) => fxAbsorb(
+        { r:a.r, c:a.c },
+        [...hits.values()].filter(h => !h.done && h.hitters.some(x => x.idx === idx)).map(h => ({ r:h.r, c:h.c, clear:h.val === a.val }))
+      ));
+      if(waits.length){
+        await Promise.all(waits);
+        if(gen !== gameGen){
+          return;
+        }
+      }
+    }
 
     /* この段までに作用したダイス（優先順） */
     const upTo =
@@ -4551,6 +4813,7 @@ async function resolvePlacement(actors){
 
     render();
 
+
     if(ph < phaseCount - 1){
 
       await sleep(tempo(PLACE_STEP_DELAY_MS));
@@ -4582,7 +4845,7 @@ async function resolvePlacement(actors){
     affectedCols.add(a.c);
   }
 
-  await sleep(tempo(90));
+  await sleep(tempo(FX_AFTER_CLEAR_MS));
 
   if(gen !== gameGen){
     return;
@@ -4718,61 +4981,26 @@ async function animateChainFall(
   }
 
 
-  for(
-    let step=1;
-    step<=maxDrop;
-    step++
-  ){
-
-    if(gameGen !== gen){
-      return null;
+  /* 【修正箇所】1マスずつ動かすのをやめ、着地後の盤面にしてから、見た目だけなめらかに加速して落とす */
+  const falls = [];
+  for(const plan of plans){
+    for(const item of plan.items){
+      if(item.drop > 0) falls.push({ c:plan.c, newR:item.targetR, drop:item.drop, fromRect:fxCellRect(item.oldR, plan.c) });
     }
+  }
 
-    for(
-      const plan of plans
-    ){
+  for(const plan of plans){
+    const c = plan.c;
+    for(let r = 0; r < TOTAL_ROWS; r++){ board[r][c] = 0; boardColor[r][c] = 'W'; }
+    for(const item of plan.items){ board[item.targetR][c] = item.val; boardColor[item.targetR][c] = item.color; }
+  }
 
-      const c = plan.c;
+  render();
 
-      for(
-        let r=0;
-        r<TOTAL_ROWS;
-        r++
-      ){
+  await fxSmoothFall(falls);
 
-        board[r][c] = 0;
-
-        boardColor[r][c] = 'W';
-      }
-
-      for(
-        const item of plan.items
-      ){
-
-        const currentR =
-          item.oldR +
-          Math.min(
-            step,
-            item.drop
-          );
-
-        board[currentR][c] =
-          item.val;
-
-        boardColor[currentR][c] =
-          item.color;
-      }
-    }
-
-    render();
-
-    await sleep(
-      tempo(CHAIN_FALL_STEP_MS)
-    );
-
-    if(gameGen !== gen){
-      return null;
-    }
+  if(gameGen !== gen){
+    return null;
   }
 
   const fallenDice = [];
@@ -4808,7 +5036,7 @@ async function animateChainFall(
   if(maxDrop>0){
 
     await sleep(
-      tempo(CHAIN_FALL_SETTLE_MS)
+      tempo(FX_LAND_REACT_MS)   /* 上にポヨンで着地してから反応する */
     );
   }
 
@@ -5878,7 +6106,8 @@ document.addEventListener(
 
     }else if(
       k === 'arrowup' ||
-      k === 'w'
+      (k === 'w' && !spaceRotate) ||
+      (e.key === ' ' && spaceRotate)
     ){
 
       tryRotate();
@@ -5888,7 +6117,8 @@ document.addEventListener(
     }else if(
       k === 'arrowdown' ||
       k === 's' ||
-      e.key === ' '
+      (e.key === ' ' && !spaceRotate) ||
+      (k === 'w' && spaceRotate)
     ){
 
       hardDrop();
@@ -6293,6 +6523,12 @@ document
     }
   );
 
+
+document.getElementById('keySwitch').addEventListener('click', e => { e.currentTarget.blur(); toggleKeySwitch(); });
+
+/* 操作の切替はPCだけの話なので、PCタブのときだけ表示する */
+document.getElementById('tabMobile').addEventListener('click', () => { document.getElementById('keySwitch').style.visibility = 'hidden'; });
+document.getElementById('tabPC').addEventListener('click', () => { document.getElementById('keySwitch').style.visibility = 'visible'; });
 
 document
   .getElementById('btnCloseControls')
